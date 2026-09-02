@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>骑勇大战 · 回合制卡牌对战</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════ 三国杀式布局：上下两排武将 + 中央战场 + 底部手牌 ═══════════ */
+:root{
+  --ink:#080a10; --ink2:#0d1118; --ink3:#141a24; --ink4:#1b222e;
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.22);
+  --text:#eef1f6; --muted:#8b93a3; --faint:#59616f;
+  --cle:#860038; --cle-lt:#c4185c; --cle-gold:#FDBB30;
+  --gsw:#1D428A; --gsw-lt:#3a6dc9; --gsw-gold:#FFC72C;
+  --win:#3ecf6e; --lose:#ef3b56; --hot:#f2b33d; --hot2:#ffd97a;
+  --f-disp:"Anton","Arial Narrow Bold","PingFang SC","Microsoft YaHei",sans-serif;
+  --f-ui:"Barlow Condensed",-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --f-num:"Roboto Mono","Bahnschrift",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--ink);color:var(--text);font-family:var(--f-ui);font-size:15px;
+  -webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(900px 460px at 50% -12%,rgba(29,66,138,.16),transparent 64%),
+    radial-gradient(900px 460px at 50% 112%,rgba(134,0,56,.16),transparent 64%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.hide{display:none!important}
+
+.table{position:relative;z-index:1;height:100vh;display:grid;
+  grid-template-rows:auto 1fr auto;gap:0}
+
+/* ─────────── 武将排 ─────────── */
+/* ═══════════ 球员牌：竖版真卡牌 ═══════════ */
+.seatrow{display:flex;align-items:stretch;gap:8px;padding:10px 13px;position:relative}
+.seatrow.opp{border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
+.seatrow.mine{border-top:1px solid var(--line);
+  background:linear-gradient(0deg,rgba(255,255,255,.03),transparent)}
+.teamtag{flex:0 0 82px;display:flex;flex-direction:column;justify-content:center;gap:1px;
+  padding-right:10px;border-right:1px solid var(--line)}
+.teamtag .ab{font-family:var(--f-disp);font-size:24px;line-height:.9;letter-spacing:.4px}
+.teamtag .sc{font-family:var(--f-disp);font-size:42px;line-height:.84;letter-spacing:-2px}
+.teamtag .cc{font-size:10px;letter-spacing:.08em;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+
+/* 球员卡：号码大水印 + 上下分区，像实体卡 */
+.seat{flex:1 1 0;min-width:0;height:152px;position:relative;overflow:hidden;
+  border-radius:6px;padding:0;transition:transform .15s,box-shadow .15s,border-color .15s;
+  cursor:default;background:linear-gradient(165deg,#1a2130 0%,#111722 58%,#0d121b 100%);
+  border:1px solid var(--line);display:flex;flex-direction:column}
+.seat .wm{position:absolute;right:-6px;top:-16px;font-family:var(--f-disp);font-size:88px;
+  line-height:1;color:rgba(255,255,255,.045);letter-spacing:-4px;pointer-events:none;z-index:0}
+.seat .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;z-index:1}
+.seat.cle .stripe{background:linear-gradient(180deg,var(--cle-lt),var(--cle))}
+.seat.gsw .stripe{background:linear-gradient(180deg,var(--gsw-lt),var(--gsw))}
+.seat .top{position:relative;z-index:2;padding:8px 9px 6px 12px;border-bottom:1px solid var(--line)}
+.seat .nmline{display:flex;align-items:baseline;gap:5px;line-height:1}
+.seat .nm{font-family:var(--f-disp);font-size:17px;letter-spacing:.4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seat .po{font-size:9px;letter-spacing:.1em;color:var(--faint);flex:0 0 auto}
+.seat .mid{position:relative;z-index:2;padding:6px 9px 6px 12px;flex:0 0 auto}
+.sta{display:flex;gap:1.5px;margin-bottom:5px}
+.sta u{flex:1;height:6px;background:#232b3a;border:1px solid rgba(255,255,255,.06);display:block;border-radius:1px}
+.sta u.on{background:var(--hot);border-color:var(--hot)}
+.seat .atts{display:grid;grid-template-columns:auto auto;justify-content:start;
+  gap:3px 14px;font-size:9.5px;color:var(--faint);letter-spacing:.02em}
+.seat .atts span{white-space:nowrap}
+.seat .atts b{font-family:var(--f-num);color:#b9c0cb;font-weight:400;margin-left:3px}
+.seat .sk{position:relative;z-index:2;margin:0 9px 0 12px;padding:5px 0 6px;
+  border-top:1px solid var(--line);font-size:9.5px;line-height:1.38;color:#949dab;
+  flex:1 1 auto;overflow:hidden}
+.seat .sk i{font-style:normal;color:var(--hot);font-weight:600;letter-spacing:.2px}
+.seat .foot{position:relative;z-index:2;padding:3px 9px 5px 12px;font-family:var(--f-num);
+  font-size:9.5px;color:var(--faint);display:flex;justify-content:space-between;gap:6px}
+.seat .foot .free{color:var(--hot2)}
+.seat .foot .bad{color:var(--lose)}
+
+.seat.pick{cursor:pointer;border-color:var(--line2)}
+.seat.pick:hover{transform:translateY(-6px);border-color:var(--hot);
+  box-shadow:0 10px 26px rgba(0,0,0,.55),0 0 0 1px rgba(242,179,61,.3)}
+.seatrow.opp .seat.pick:hover{transform:translateY(6px)}
+.seat.spent{opacity:.3;filter:grayscale(.5)}
+.seat.facedown.spent{opacity:1;filter:none}   /* 卡背必须五张完全一致 */
+.seat.onfield{border-color:var(--hot);
+  background:linear-gradient(165deg,#252a1a 0%,#1a1d16 58%,#14170f 100%);
+  box-shadow:inset 0 0 0 1px rgba(242,179,61,.3),0 0 22px rgba(242,179,61,.12)}
+.seat.onfield .badge{position:absolute;top:0;right:0;z-index:3;font-size:8.5px;letter-spacing:.14em;
+  background:var(--hot);color:#101318;padding:2px 6px;font-weight:600}
+/* 盲选期间对手整排 —— 全部翻面，五张必须完全一致，任何差异都是信息泄漏 */
+.seat.facedown{border-color:var(--line);cursor:default;
+  background:
+    repeating-linear-gradient(135deg,rgba(255,255,255,.028) 0 6px,transparent 6px 12px),
+    radial-gradient(120% 90% at 50% 0%,#1c2331 0%,#141a26 55%,#0e131c 100%)}
+.seat.facedown .top,.seat.facedown .mid,.seat.facedown .sk,.seat.facedown .foot,
+.seat.facedown .wm,.seat.facedown .badge{visibility:hidden}
+.seat.facedown::before{content:'';position:absolute;inset:9px;z-index:2;
+  border:1px solid rgba(255,255,255,.07);border-radius:3px}
+.seat.facedown::after{content:'?';position:absolute;inset:0;z-index:3;display:flex;
+  align-items:center;justify-content:center;font-family:var(--f-disp);font-size:46px;
+  letter-spacing:0;color:rgba(255,255,255,.1)}
+/* 已锁定 vs 未锁定的区别只放在队标区，不放在任何一张牌上 */
+.teamtag .lock{font-size:9.5px;letter-spacing:.14em;margin-top:3px;
+  color:var(--faint);white-space:nowrap}
+.teamtag .lock.on{color:var(--hot)}
+
+
+/* ─────────── 中央战场 ─────────── */
+.field{position:relative;display:grid;grid-template-columns:1fr 292px;min-height:0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.arena{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.status{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--line);
+  background:var(--ink2);min-height:44px}
+.status .ph{font-family:var(--f-disp);font-size:16px;letter-spacing:1.6px;color:var(--hot);
+  padding:0 15px;border-right:1px solid var(--line);white-space:nowrap}
+.status .tn{font-size:12px;letter-spacing:.1em;color:var(--muted);padding:0 14px;white-space:nowrap}
+.status .who{margin-left:auto;display:flex;align-items:center;gap:7px;padding:0 13px}
+.status .who .vb{background:var(--ink3);border:1px solid var(--line2);color:var(--muted);
+  font-family:var(--f-ui);font-size:12px;letter-spacing:.06em;padding:5px 11px;cursor:pointer}
+.status .who .vb.on{background:var(--hot);color:#101318;border-color:var(--hot);font-weight:600}
+.status .who .vb:hover:not(.on){border-color:var(--hot);color:var(--text)}
+.status .oppwin{background:transparent;border:1px solid var(--line2);color:var(--muted);
+  font-family:var(--f-ui);font-size:11.5px;padding:5px 9px;cursor:pointer}
+.status .oppwin:hover{border-color:var(--hot);color:var(--hot)}
+/* 「重开」单独加重 —— 跟"开对手窗口"挤在一起时太容易忽略，
+   玩家打了几回合后想开新局可能找半天。Ethan 的反馈证明这值得。*/
+.status #resetbtn{color:var(--lose);border-color:rgba(229,90,90,.4)}
+.status #resetbtn:hover{border-color:var(--lose);color:#fff;background:rgba(229,90,90,.18)}
+
+/* 对战台：双方场上球员面对面 */
+.duel{display:grid;grid-template-columns:1fr 132px 1fr;align-items:stretch;gap:0;
+  padding:16px;border-bottom:1px solid var(--line);flex:1 1 auto;min-height:150px}
+.dcard{background:linear-gradient(165deg,#161d29,#101620);border:1px solid var(--line);
+  padding:14px 16px;min-height:108px;border-radius:5px;
+  position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.dcard.cle{border-left:3px solid var(--cle-lt)} .dcard.gsw{border-left:3px solid var(--gsw-lt)}
+.dcard.void{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-style:dashed;color:var(--faint);gap:3px}
+.dcard.void .q{font-family:var(--f-disp);font-size:30px;letter-spacing:5px;color:#3a4351}
+.dcard.void .t{font-size:11px;letter-spacing:.1em}
+.dcard .hd{display:flex;align-items:flex-end;gap:7px;line-height:1;margin-bottom:6px}
+.dcard .hd .n{font-family:var(--f-disp);font-size:27px;color:var(--faint);line-height:.86}
+.dcard .hd .nm{font-family:var(--f-disp);font-size:21px;letter-spacing:.5px;line-height:1}
+.dcard .hd .role{font-size:10px;letter-spacing:.14em;color:var(--hot);padding-bottom:2px}
+.dcard .line{display:flex;gap:11px;font-size:11px;color:var(--muted);margin-bottom:5px}
+.dcard .line b{font-family:var(--f-num);color:var(--text);font-weight:400}
+.dcard .sk{font-size:11.5px;line-height:1.45;color:#a8b0bd;border-top:1px solid var(--line);
+  padding-top:6px;margin-top:auto}
+.dcard .sk i{font-style:normal;color:var(--hot);font-weight:600}
+.dcard .fat{color:var(--lose);font-size:10.5px;margin-top:3px}
+
+/* 中央骰子 */
+.dieslot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.die{width:112px;height:112px;position:relative}
+.die svg{width:100%;height:100%;display:block;overflow:visible}
+.die .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-disp);font-size:44px;letter-spacing:-2px;line-height:1;
+  text-shadow:0 2px 14px rgba(0,0,0,.8)}
+.die.rolling{animation:tumble .3s linear infinite}
+.die.rolling .val{opacity:.5}
+@keyframes tumble{0%{transform:rotate(0) scale(1)}25%{transform:rotate(96deg) scale(1.07)}
+  50%{transform:rotate(180deg) scale(.95)}75%{transform:rotate(276deg) scale(1.05)}
+  100%{transform:rotate(360deg) scale(1)}}
+.die.land{animation:land .4s cubic-bezier(.28,1.5,.42,1)}
+@keyframes land{0%{transform:scale(1.28)}60%{transform:scale(.95)}100%{transform:scale(1)}}
+.die.hit .val{color:var(--win)} .die.miss .val{color:var(--lose)}
+.die.crit .val{color:var(--cle-gold)} .die.crit1 .val{color:var(--lose)}
+.die.crit .face{fill:#2e2410;stroke:var(--cle-gold);stroke-width:2}
+.die.crit1 .face{fill:#2a1116;stroke:var(--lose);stroke-width:2}
+.die.hit .face{stroke:var(--win)} .die.miss .face{stroke:#5b4149}
+.dieslot .need{font-family:var(--f-disp);font-size:15px;letter-spacing:.6px;text-align:center;line-height:1.1}
+.dieslot .verd{font-family:var(--f-disp);font-size:13px;letter-spacing:1.2px}
+.dieslot .vs{font-family:var(--f-disp);font-size:20px;color:#39424f;letter-spacing:2px}
+
+/* 已打出的牌（桌面区） */
+.played{display:flex;align-items:center;gap:8px;padding:9px 16px;min-height:52px;
+  border-bottom:1px solid var(--line);background:var(--ink2);flex-wrap:wrap}
+.played .lb{font-size:10px;letter-spacing:.18em;color:var(--faint);flex:0 0 auto}
+.pcd{border:1px solid var(--line2);background:var(--ink3);padding:5px 10px;font-size:12.5px;
+  letter-spacing:.3px;position:relative;flex:0 0 auto}
+.pcd em{font-style:normal;font-size:9.5px;letter-spacing:.1em;color:var(--faint);
+  display:block;margin-top:1px}
+.pcd.o{border-bottom:2px solid var(--hot)} .pcd.d{border-bottom:2px solid var(--gsw-lt)}
+.pcd.t{border-bottom:2px solid var(--win)}
+.played .none{font-size:12px;color:var(--faint)}
+.dcparts{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px;border-bottom:1px solid var(--line)}
+.chip{font-size:10.5px;padding:2px 7px;border:1px solid var(--line);background:var(--ink3);
+  letter-spacing:.2px;white-space:nowrap}
+.chip i{font-style:normal;font-family:var(--f-num);margin-left:4px}
+.chip.neg{border-color:rgba(62,207,110,.32)} .chip.neg i{color:var(--win)}
+.chip.pos{border-color:rgba(239,59,86,.32)} .chip.pos i{color:var(--lose)}
+
+/* 提示条 */
+.prompt{padding:11px 16px;border-bottom:1px solid var(--line);background:rgba(242,179,61,.05)}
+.prompt h3{font-family:var(--f-disp);font-size:15px;letter-spacing:1.3px;color:var(--hot);margin-bottom:3px}
+.prompt .sub{font-size:12.5px;color:var(--muted);line-height:1.55}
+.prompt .sub b{color:var(--text)}
+.acts{display:flex;flex-wrap:wrap;gap:7px;padding:10px 16px;border-bottom:1px solid var(--line);
+  flex:0 0 auto}
+.act{background:var(--ink3);border:1px solid var(--line2);padding:8px 12px;cursor:pointer;
+  font-family:var(--f-ui);font-size:13.5px;color:var(--text);text-align:left;transition:.13s}
+.act:hover{background:var(--ink4);border-color:var(--hot)}
+.act.prime{border-color:var(--hot);background:#1e2432}
+.act.gh{background:transparent;border-style:dashed}
+.act .t{display:flex;gap:9px;align-items:baseline;justify-content:space-between}
+.act .t b{font-weight:600;letter-spacing:.3px}
+.act .t span{font-family:var(--f-num);font-size:11px;color:var(--hot)}
+.act .d{font-size:10.5px;color:var(--muted);margin-top:2px;max-width:230px;line-height:1.4}
+
+/* 日志 */
+.flow{flex:0 1 auto;max-height:210px;min-height:74px;overflow-y:auto}
+.flow .li{padding:5px 16px;border-bottom:1px solid rgba(255,255,255,.045);font-size:12px;
+  display:flex;gap:8px;line-height:1.4}
+.flow .li b{font-family:var(--f-num);font-size:10px;color:var(--faint);flex:0 0 24px}
+.flow .li.cle{border-left:2px solid var(--cle-lt)} .flow .li.gsw{border-left:2px solid var(--gsw-lt)}
+.flow .li.big{background:rgba(242,179,61,.06)}
+.flow .li s{text-decoration:none;color:var(--faint);font-size:11px}
+.flow .ft{font-family:var(--f-disp);font-size:11px;letter-spacing:1.4px;color:var(--faint);
+  padding:6px 16px;border-bottom:1px solid var(--line);background:var(--ink3)}
+.flow .ft:first-child{position:sticky;top:0;z-index:2}
+.flow .ft:not(:first-child){border-top:1px solid var(--line);margin-top:6px}
+.cheat{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed}
+.cheat td{padding:5px 5px;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:middle}
+.cheat td.c1{font-family:var(--f-disp);font-size:12px;letter-spacing:.4px;width:60px;padding-left:0}
+.cheat td.c2{color:var(--muted);line-height:1.35}
+.cheat td.c3{width:66px;text-align:right;padding-right:0;color:var(--faint);white-space:nowrap;font-size:10.5px}
+.cheat td.c3 i{font-style:normal;font-family:var(--f-num);color:var(--win);margin-left:4px}
+.cheat tr.on{background:rgba(242,179,61,.09)}
+.cheat tr.on td.c1{color:var(--hot)}
+
+/* ─────────── 右侧信息栏 ─────────── */
+.info{border-left:1px solid var(--line);background:var(--ink2);overflow-y:auto;padding:12px 12px 16px}
+.info .sect{margin-bottom:15px}
+.info h4{font-family:var(--f-disp);font-size:11px;letter-spacing:1.5px;color:var(--faint);
+  padding-bottom:4px;border-bottom:1px solid var(--line);margin-bottom:7px}
+.oppsk{font-size:11px;line-height:1.45;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.07);color:#a4acb9}
+.oppsk b{color:var(--text);font-weight:600;letter-spacing:.3px}
+.oppsk em{font-style:normal;color:var(--hot);font-size:9px;letter-spacing:.1em;margin-left:4px}
+.oppsk s{text-decoration:none;display:block;color:var(--faint);font-size:10px;margin-top:1px}
+.coachbox{font-size:11.5px;color:var(--muted);line-height:1.5}
+.coachbox b{display:block;font-family:var(--f-disp);font-size:14px;letter-spacing:.7px;color:var(--text)}
+.piles{display:flex;gap:6px}
+.pile{flex:1;background:var(--ink3);border:1px solid var(--line2);padding:6px 3px;text-align:center}
+.pile .c{font-family:var(--f-disp);font-size:18px;line-height:1}
+.pile .l{font-size:9px;letter-spacing:.08em;color:var(--faint);margin-top:1px}
+.btn{background:var(--hot);color:#101318;border:0;padding:9px 18px;font-family:var(--f-disp);
+  font-size:14px;letter-spacing:1.4px;cursor:pointer}
+.btn.gh{background:transparent;color:var(--muted);border:1px solid var(--line2)}
+.btn.gh:hover{border-color:var(--hot);color:var(--hot)}
+
+/* ═══════════ 手牌：竖版扇形 + 可拖 ═══════════ */
+.hand{padding:6px 14px 14px;display:flex;align-items:flex-end;gap:22px;min-height:162px;position:relative}
+.hgrp{display:flex;flex-direction:column;gap:4px}
+.hgrp .lb{font-size:9.5px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;
+  padding-left:2px;display:flex;align-items:center;gap:6px}
+.hgrp .lb u{text-decoration:none;font-family:var(--f-num);color:var(--muted)}
+.cards{display:flex;min-height:126px;align-items:flex-end;padding-top:18px}
+.card{width:78px;height:114px;flex:0 0 auto;position:relative;border-radius:5px;
+  background:linear-gradient(168deg,#242c3c 0%,#1a212e 62%,#151b26 100%);
+  border:1px solid var(--line2);padding:7px 8px;display:flex;flex-direction:column;
+  justify-content:space-between;transition:transform .16s,box-shadow .16s,border-color .16s;
+  margin-left:-5px;user-select:none}
+.card:first-child{margin-left:0}
+.card .cn{font-family:var(--f-disp);font-size:16px;letter-spacing:0;line-height:1.08;z-index:1;
+  word-break:keep-all}
+.card .cn.long{font-size:13px;letter-spacing:-.3px}
+.card .cv{font-family:var(--f-num);font-size:10.5px;color:var(--muted);letter-spacing:-.2px;z-index:1}
+.card .glyph{position:absolute;right:4px;bottom:20px;font-family:var(--f-disp);font-size:34px;
+  line-height:1;color:rgba(255,255,255,.05);pointer-events:none}
+.card.o{border-top:3px solid var(--hot)}
+.card.d{border-top:3px solid var(--gsw-lt)}
+.card.t{border-top:3px solid var(--win)}
+.card.on{cursor:grab}
+.card.on:hover{transform:translateY(-18px) rotate(0deg)!important;z-index:20;
+  border-color:var(--hot);box-shadow:0 14px 30px rgba(0,0,0,.6),0 0 0 1px rgba(242,179,61,.35)}
+.card.on:active{cursor:grabbing}
+.card.dragging{opacity:.32;transform:translateY(-6px) scale(.96)!important}
+.card.off2{opacity:.34;filter:grayscale(.4)}
+.cards .empty{font-size:11px;color:var(--faint);padding:0 4px 44px}
+.handmeta{margin-left:auto;display:flex;flex-direction:column;gap:5px;align-items:flex-end;padding-bottom:8px}
+.handmeta .cnt{font-family:var(--f-disp);font-size:16px;letter-spacing:.6px}
+.handmeta .cnt.warn{color:var(--lose)}
+.handmeta .hint{font-size:11.5px;color:var(--hot);text-align:right;max-width:240px;line-height:1.45}
+
+/* ═══════════ 拖放区 ═══════════ */
+.dropzone{position:relative;transition:.15s}
+.dropzone.armed{border-color:rgba(242,179,61,.5)!important;
+  background:rgba(242,179,61,.05)!important}
+.dropzone.over{border-color:var(--hot)!important;background:rgba(242,179,61,.13)!important;
+  box-shadow:inset 0 0 0 1px rgba(242,179,61,.4)}
+.dzhint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-family:var(--f-disp);font-size:14px;letter-spacing:2px;color:var(--hot);
+  pointer-events:none;z-index:5;background:rgba(8,10,16,.55)}
+.dropzone.armed .dzhint{display:flex}
+.dropzone.over .dzhint{background:rgba(242,179,61,.1)}
+
+/* ─────────── 遮罩 ─────────── */
+.veil{position:fixed;inset:0;z-index:99;background:rgba(6,8,13,.95);
+  display:flex;align-items:center;justify-content:center;padding:28px;overflow-y:auto}
+.veil .pane{max-width:660px;width:100%}
+.veil h1{font-family:var(--f-disp);font-size:clamp(34px,5.6vw,62px);letter-spacing:3px;line-height:.98}
+.veil .kick{font-family:var(--f-disp);font-size:11px;letter-spacing:.55em;color:var(--hot);margin-bottom:8px}
+.veil p{color:var(--muted);font-size:13px;line-height:1.65;margin:11px 0 18px}
+.veil p b{color:var(--text)}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.pk{background:var(--ink2);border:1px solid var(--line2);padding:13px;cursor:pointer;text-align:left;
+  font-family:var(--f-ui);color:var(--text)}
+.pk:hover{border-color:var(--hot)}
+.pk .t2{font-family:var(--f-disp);font-size:20px;letter-spacing:.7px}
+.pk .d2{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.coachpick{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.gameover{text-align:center}
+.gameover .big{font-family:var(--f-disp);font-size:clamp(44px,8.4vw,104px);letter-spacing:2px;line-height:.9}
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-thumb{background:#252d3b}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div class="table hide" id="app">
+
+  <!-- 对面武将排 -->
+  <div class="seatrow opp" id="rowOpp">
+    <div class="teamtag">
+      <div class="ab" id="oppAb">GSW</div>
+      <div class="sc num" id="oppSc">0</div>
+      <div class="cc" id="oppCoach"></div>
+      <div class="lock" id="oppLock"></div>
+    </div>
+    <div style="display:flex;gap:7px;flex:1 1 auto;min-width:0" id="oppSeats"></div>
+  </div>
+
+  <!-- 中央战场 -->
+  <div class="field">
+    <div class="arena">
+      <div class="status">
+        <div class="ph" id="phase">选人</div>
+        <div class="tn" id="turnlb"></div>
+        <div class="who">
+          <button class="vb" id="vbCLE">骑士</button>
+          <button class="vb" id="vbGSW">勇士</button>
+          <button class="oppwin" id="openopp">开对手窗口 ↗</button>
+          <button class="oppwin" id="resetbtn">重开</button>
+        </div>
+      </div>
+
+      <div class="duel">
+        <div class="dcard void dropzone" id="duelOff"><span class="dzhint" id="dzOff"></span></div>
+        <div class="dieslot">
+          <div class="die hide" id="die">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <polygon class="face" points="60,3 114,34 114,86 60,117 6,86 6,34"
+                fill="#141a24" stroke="#46556b" stroke-width="1.6"/>
+              <polygon points="60,3 114,34 60,40" fill="#1e2634" stroke="#3b4859" stroke-width=".7"/>
+              <polygon points="60,3 6,34 60,40" fill="#232c3c" stroke="#3b4859" stroke-width=".7"/>
+              <polygon points="114,34 114,86 60,40" fill="#191f2b" stroke="#3b4859" stroke-width=".7"/>
+              <polygon points="6,34 6,86 60,40" fill="#1c232f" stroke="#3b4859" stroke-width=".7"/>
+              <polygon points="60,40 114,86 60,96 6,86" fill="#111721" stroke="#3b4859" stroke-width=".9"/>
+              <polygon points="6,86 60,96 60,117" fill="#1a212c" stroke="#3b4859" stroke-width=".7"/>
+              <polygon points="114,86 60,96 60,117" fill="#151b25" stroke="#3b4859" stroke-width=".7"/>
+            </svg>
+            <div class="val num" id="dieval">—</div>
+          </div>
+          <div class="vs" id="vsmark">VS</div>
+          <div class="need" id="dieneed"></div>
+          <div class="verd" id="dieverd"></div>
+        </div>
+        <div class="dcard void dropzone" id="duelDef"><span class="dzhint" id="dzDef"></span></div>
+      </div>
+
+      <div class="played dropzone" id="played"><span class="dzhint" id="dzPlayed">拖到这里打出</span></div>
+      <div class="dcparts hide" id="dcparts"></div>
+      <div class="prompt" id="prompt"></div>
+      <div class="acts" id="acts"></div>
+      <div class="flow" id="flow"></div>
+    </div>
+
+    <aside class="info">
+      <div class="sect"><h4>攻防相克 · 真实挡拆防守</h4><div id="cheatbox"></div></div>
+      <div class="sect"><h4>对手技能（全部公开）</h4><div id="oppskills"></div></div>
+      <div class="sect"><h4>牌堆</h4><div class="piles" id="piles"></div></div>
+      <div class="sect"><h4>教练体系</h4><div class="coachbox" id="coachbox"></div></div>
+    </aside>
+  </div>
+
+  <!-- 我方武将排 -->
+  <div class="seatrow mine" id="rowMine">
+    <div class="teamtag">
+      <div class="ab" id="myAb">CLE</div>
+      <div class="sc num" id="mySc">0</div>
+      <div class="cc" id="myCoach"></div>
+      <div class="lock" id="myLock"></div>
+    </div>
+    <div style="display:flex;gap:7px;flex:1 1 auto;min-width:0" id="mySeats"></div>
+  </div>
+
+  <!-- 手牌 -->
+  <div class="hand">
+    <div class="hgrp"><div class="lb">进攻牌 <u id="cntOff"></u></div><div class="cards" id="handOff"></div></div>
+    <div class="hgrp"><div class="lb">防守牌 <u id="cntDef"></u></div><div class="cards" id="handDef"></div></div>
+    <div class="hgrp"><div class="lb">战术牌 <u id="cntTac"></u></div><div class="cards" id="handTac"></div></div>
+    <div class="handmeta">
+      <div class="cnt num" id="handCnt"></div>
+      <div class="hint" id="handHint"></div>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="veil"><div class="pane" id="veilpane"></div></div>
+<script type="module">
+// ============================================================================
+// 骑勇大战 · 规则内核（唯一真相源）
+// 这个文件同时被 sim.mjs（校准）与 build.mjs（注入 HTML）使用。
+// 目的：让"模拟的规则"与"实际玩的规则"物理上不可能不一致。
+// ============================================================================
+
+// ---------------------------------------------------------------- 可调系数
+const TUNING = {
+  // ═══ 命中率标定（第三次重标定，2026-09-02）═══
+  // 设计取向：这是卡牌游戏，不是命中率模拟器。Ethan 的原话是决定性的 ——
+  //   「有防守人的情况也应该在 50~70% 至少，因为这个游戏大部分情况下是有对策牌的，
+  //     不能让进攻效率那么差，反而应该高一点才好玩，所以有防守和无防守不能差太多」
+  // 因此放弃「对齐真实 NBA 命中率」这个目标（那是 manager-sim 项目的事）。
+  //
+  // 实测结果（手上 3 张进攻牌时的最优出手，即真实决策场景）：
+  //   中位 70%，P05 55%，低于 50% 只占 0.9%
+  // 有防守应对 + 干扰牌下：三分 50% / 中投·突破 60% / 扣篮·空接 70%
+  // 唯一的 35% 是「TT 投三分」—— 他真 2K17 的 3PT 是 25，这是写实惩罚不是缺陷。
+  baseDC: { three: 10, mid: 7, drive: 6, dunk: 4, alley: 5 },
+  // 修正项统一缩放系数。原始跨度太大（三分一项 27 格 DC）而目标区间只有 8 格，
+  // 不缩放则大量组合被封顶挤在下界，防守牌打不打都一样。0.55 实测封顶率仅 1.9%。
+  modScale: 0.55,
+  attrScale: 0.115,     // 进攻属性每高于 50 一点，DC 降多少（会再乘 modScale）
+  defScale: 0.068,      // 防守属性每高于 50 一点，DC 升多少（会再乘 modScale）
+  fatigueStep: 2,       // 体能过半后每缺 1 点，DC 升多少（乘以耐力折扣）
+  reboundDC: 12,        // 前场篮板争抢难度
+  stealDC: 15,          // 抢断成功难度
+  dcFloor: 3,           // DC 下限 → 最高命中 90%（再好的机会也不是必进）
+  // DC 上限的四次调整史，每次都有实测依据：
+  //  20（初版）→ made = (roll >= dc) 且掷 20 本就是自然 20 必进，所以 DC 20 与 21 数学等价，
+  //              是防守干扰牌的「一票否决」。实测 11.5% 的组合被顶到 20，玩家看到「需 20 · 5%」。
+  //  18        → 最低 15%，但「≤15% 的组合占 25.7%」，四分之一的出手堆在下界。
+  //  16        → 最低 25%，对齐真实下界（Disney Research 追踪数据：贴身三分 26.6%）。
+  //              但 Ethan 指出这个取向本身就错了 —— 卡牌游戏不该按模拟器标定。
+  //  14（现在）→ 最低 35%，配合 modScale 0.55，让「有防守」落在 50-70%。
+  dcCeil: 14,
+  // 手牌上限 11、起手 8（3攻/3防/2战，硬编码在 freshState 里）。
+  // 原来上限 7 且起手就是 7 —— 于是每回合摸 2 张就立刻触发弃牌（摸了又扔），
+  // 玩家永远只有 1 张进攻牌可选。留 3 张囤牌空间才有「存着用」的余地
+  // （Ethan 早先提过「有些牌可以存着用」）。
+  handLimit: 11,
+  drawPerTurn: 2,
+  startHand: 8,
+  targetScore: 15,
+  // 骑士整体属性弱于死亡五小约 25%（历史事实：勇士 4-1 赢下 2017 总决赛）。
+  // 但重标定后（modScale 0.55 把属性差压缩了 45% + 命中率整体拉高到 50-90%），
+  // 勇士的先天优势已被显著削弱 —— 此时再给骑士 -1 DC 会让他们反超到 55.7%。
+  // 所以主场补偿归零，让压缩后的属性差自己说话。
+  homeEdge: 0,
+};
+
+const SHOTS = ['three', 'mid', 'drive', 'dunk', 'alley'];
+const SHOT_PTS = { three: 3, mid: 2, drive: 2, dunk: 2, alley: 2 };
+const SHOT_ZH  = { three: '三分', mid: '中投', drive: '突破', dunk: '扣篮', alley: '空接' };
+
+// ---------------------------------------------------------------- 防守应对
+// 全部为非负修正：数字小 = "这种防守必须让出这种球"。
+// 依据真实挡拆防守相克表（Coverage Cheat Sheet / nbaplaybook）。
+const DEF_RESPONSE = {
+  drop:   { zh:'沉退',     mod:{three:1, mid:1, drive:4, dunk:6, alley:6}, gives:'外线跳投与大个外弹' },
+  hedge:  { zh:'延误',     mod:{three:4, mid:3, drive:4, dunk:1, alley:0}, gives:'短挡拆顺下 4 打 3' },
+  swtch:  { zh:'无限换防', mod:{three:5, mid:3, drive:1, dunk:1, alley:2}, gives:'错位单打' },
+  ice:    { zh:'侧翼封堵', mod:{three:2, mid:5, drive:3, dunk:3, alley:3}, gives:'弱侧底角三分' },
+  blitz:  { zh:'包夹',     mod:{three:3, mid:6, drive:5, dunk:1, alley:0}, gives:'后场 4 打 3', summons:true },
+  scram:  { zh:'缩防换位', mod:{three:2, mid:2, drive:4, dunk:4, alley:4}, gives:'外围出手' },
+  allsw:  { zh:'全员换防', mod:{three:3, mid:3, drive:3, dunk:3, alley:3}, gives:'无', coachOnly:'dantoni' },
+  none:   { zh:'原始对位', mod:{three:0, mid:0, drive:0, dunk:0, alley:0}, gives:'一切' },
+};
+
+// ---------------------------------------------------------------- 进攻战术
+const OFF_TACTIC = {
+  pnr:    { zh:'挡拆',     mod:{three:-3, mid:-3, drive:-2, dunk:-1, alley:-2} },
+  horns:  { zh:'牛角',     mod:{three:-2, mid:-3, drive:-1, dunk:-3, alley:-3} },
+  motion: { zh:'无球跑动', mod:{three:-5, mid:-2, drive:0,  dunk:0,  alley:0}  },
+  iso:    { zh:'单打',     mod:{three:0,  mid:-3, drive:-4, dunk:-2, alley:0}  },
+  dho:    { zh:'手递手',   mod:{three:-4, mid:-2, drive:-1, dunk:0,  alley:0}  },
+  split:  { zh:'分球空切', mod:{three:-4, mid:-2, drive:-1, dunk:0,  alley:-1}, coachOnly:'kerr' },
+  liftup: { zh:'中锋上提', mod:{three:-1, mid:-2, drive:-3, dunk:-2, alley:-2}, coachOnly:'lue', forceWorstDefender:true },
+  none:   { zh:'无战术',   mod:{three:0,  mid:0,  drive:0,  dunk:0,  alley:0}  },
+};
+
+// ------------------------------------------------------- 二阶反制（教科书惩罚）
+// [进攻战术, 出手类型, 被反制的防守应对, 额外 DC 修正]
+const COUNTERS = [
+  // Drop 必须让出挡拆后跳投与大个外弹
+  ['pnr',   'three', 'drop',  -3, '挡拆外弹惩罚沉退'],
+  ['pnr',   'mid',   'drop',  -3, '沉退让出拉杆跳投'],
+  ['horns', 'three', 'drop',  -3, '双高位外弹惩罚沉退'],
+  // Hedge / Blitz 必须让出顺下 4 打 3
+  ['pnr',   'alley', 'hedge', -3, '口袋传球穿延误'],
+  ['horns', 'alley', 'hedge', -3, '短挡拆 4 打 3'],
+  ['pnr',   'alley', 'blitz', -4, '穿越包夹的口袋传球'],
+  ['horns', 'alley', 'blitz', -4, '包夹后场 4 打 3'],
+  ['pnr',   'dunk',  'blitz', -3, '包夹后顺下终结'],
+  // Switch 必须让出错位单打
+  ['iso',   'drive', 'swtch', -3, '直接单打错位'],
+  ['iso',   'mid',   'swtch', -3, '错位背身'],
+  // Ice 必须让出弱侧与中路
+  ['motion','three', 'ice',   -3, '弱侧转移'],
+  ['iso',   'drive', 'ice',   -3, '拒绝挡拆走中路'],
+  // Scram 只化解错位与顺下，仍让出外线
+  ['pnr',   'mid',   'scram', -2, 're-screen 再打一次'],
+  ['motion','three', 'scram', -2, '缩防后外线空档'],
+];
+
+// ---------------------------------------------------------------- 牌表
+// 牌堆总量必须能在约 25-30 个回合内抽完，否则"牌堆见底"终局永不触发，
+// 比赛会拖到体能耗尽 → 无人可派 → 谁都不得分 → 死锁。
+// 每方每个自己的进攻回合摸 2 张，一局约 16-20 总回合 = 自己约 8-10 次进攻 = 摸 16-20 张。
+// 故三堆合计约 30 张（含起手 7 张）。
+// 牌堆厚度按「一局最长约 21 回合」反推（中位 16，P95 约 21）：
+//   每方进攻约 10-11 次 → off 需 11 + 起手 3 = 14
+//   每方防守约 10-11 次 → def 需 11 + 起手 2 = 13
+//   每回合双方各摸 1 张战术 → tac 需 21 + 起手 2 = 23
+// 原来的 14 / 8 / 20 厚薄失衡：防守堆尤其薄（只有 3 种共 8 张），
+// 打到后半局必然枯竭 —— 这就是 Ethan「打到后面能出的牌少得可怜」的根因。
+function buildDecks(coachId) {
+  const off = [];
+  const push = (arr, id, n) => { for (let i = 0; i < n; i++) arr.push(id); };
+  push(off, 'three', 5); push(off, 'mid', 4); push(off, 'drive', 4);
+  push(off, 'dunk', 3);  push(off, 'alley', 3);
+
+  const def = [];
+  push(def, 'contest', 5); push(def, 'block', 5);
+  push(def, 'steal', 3);   push(def, 'pressure', 3);
+
+  const tac = [];
+  const T = {
+    pnr:3, horns:2, motion:2, iso:2, dho:2,
+    drop:3, hedge:3, swtch:3, ice:2, blitz:2, scram:1,
+    hunt:1, timeout:1,
+  };
+  const coach = COACHES[coachId];
+  if (coach) for (const [k, d] of Object.entries(coach.deckDelta)) T[k] = Math.max(0, (T[k] || 0) + d);
+  if (coach?.unlock) T[coach.unlock] = (T[coach.unlock] || 0) + 2;
+  for (const [k, n] of Object.entries(T)) push(tac, k, n);
+
+  return { off, def, tac };
+}
+
+const TAC_META = {
+  hunt:    { zh:'点哥战术', kind:'special', text:'指定对方一名场下球员，扣其 1 点体能并强制其成为本回合防守人' },
+  timeout: { zh:'教练暂停', kind:'special', text:'取消对方刚打出的一张战术牌' },
+};
+// 防守牌（即时干扰层，进攻方选定出手后打出）。
+// 设计原则：四种牌必须有四种**不同的用途**，不能只是数值大小的差别。
+// Ethan 反馈「防守牌的区分度不够 有时候会显得千篇一律」——
+// 根因是原来三种全是纯 DC 修正矩阵，玩家只看到「+X 难度」，
+// 而且 `canSteal`/`stealDC` 定义了却从未被使用，抢断退化成普通的封盖。
+const DEF_CARD_META = {
+  // 举手干扰：专克外线跳投，对突破和篮下几乎无效
+  contest: { zh:'干扰投篮', mod:{three:4, mid:4, drive:1, dunk:0, alley:0},
+             role:'克跳投', text:'三分与中投难度 +4，对突破和篮下几乎无效' },
+  // 护框：专克内线，对外线基本无效
+  block:   { zh:'封盖',     mod:{three:0, mid:1, drive:3, dunk:5, alley:5},
+             role:'克内线', text:'扣篮与空接难度 +5，对外线基本无效' },
+  // 赌博式：几乎不提难度，但有机会直接断球（掷 d20 ≥ stealDC）
+  steal:   { zh:'抢断',     mod:{three:1, mid:1, drive:1, dunk:1, alley:1},
+             role:'赌断球', canSteal:true,
+             text:`几乎不提难度；掷 d20 ≥ ${TUNING.stealDC} 则直接断球，本回合结束` },
+  // 消耗战：中等提难度，但额外消耗对手上场球员 1 点体能
+  pressure:{ zh:'紧逼',     mod:{three:2, mid:2, drive:2, dunk:2, alley:2},
+             role:'耗体能', drainStamina:1,
+             text:'各类出手难度 +2，并额外消耗对手上场球员 1 点体能' },
+};
+
+// ---------------------------------------------------------------- 教练
+const COACHES = {
+  kerr: {
+    zh:'史蒂夫·科尔', system:'传切体系',
+    note:'"4" Pop Fist / Motion Weak / Loop Punch Stagger Split，复出首场全队 34 次助攻',
+    deckDelta:{ motion:+2, dho:+1, iso:-1 }, unlock:'split',
+    unlockText:'解锁【分球空切】×2：三分 DC -4，可翻出第二射手执行',
+  },
+  dantoni: {
+    zh:'迈克·德安东尼', system:'七秒快攻 · 全员换防',
+    note:'"Talk it. Touch it. Switch it. Grab it." 2017 年度最佳教练',
+    deckDelta:{ swtch:+2, blitz:+1, drop:-1 }, unlock:'allsw',
+    unlockText:'解锁【全员换防】×2：所有出手 DC +3，且免疫错位惩罚',
+  },
+  lue: {
+    zh:'泰伦·卢', system:'猎杀错位',
+    note:'派中锋做掩护逼对手换防到詹姆斯身上；G1 詹姆斯发起 1.11 PPP vs 欧文 0.8 PPP',
+    deckDelta:{ pnr:+2, iso:+1, motion:-1 }, unlock:'liftup',
+    unlockText:'解锁【中锋上提】×2：强制对手换上体能最低的球员防守',
+  },
+};
+
+// ---------------------------------------------------------------- 球员
+// 体能点数 = round(2017 总决赛 G4 真实出场分钟 / 7)
+// 属性主干来自真 2K17 的 OVR/3PT/DNK，其余维度按角色手工设计
+const ROSTERS = {
+  CLE: {
+    zh:'克利夫兰骑士', abbr:'CLE', main:'#860038', alt:'#FDBB30', ink:'#ffffff',
+    players: [
+      { id:'lbj',  zh:'勒布朗·詹姆斯', short:'詹姆斯', no:23, pos:'SF', sta:6, min:41,
+        a:{three:76, mid:80, drive:95, dunk:85, alley:92}, d:{perim:82, inter:78, steal:72},
+        skill:{ id:'takeover', zh:'接管比赛', kind:'once',
+          text:'本方上一回合进球后，本回合可让詹姆斯上场且不消耗体能（全场一次）' } },
+      { id:'kyrie',zh:'凯里·欧文', short:'欧文', no:2, pos:'PG', sta:6, min:41,
+        a:{three:84, mid:88, drive:92, dunk:30, alley:80}, d:{perim:58, inter:40, steal:55},
+        skill:{ id:'handles', zh:'单挑无解', kind:'cd', cd:2,
+          text:'打出【单打】时突破与中投 DC -4；但本回合失去重试机会' } },
+      { id:'love', zh:'凯文·勒夫', short:'勒夫', no:0, pos:'PF', sta:4, min:29,
+        a:{three:84, mid:74, drive:55, dunk:55, alley:62}, d:{perim:52, inter:66, steal:48},
+        skill:{ id:'pop', zh:'高位外弹', kind:'free',
+          text:'对手应对为【沉退】或【包夹】时，三分 DC 额外 -4' } },
+      { id:'jr',   zh:'J.R. 史密斯', short:'JR', no:5, pos:'SG', sta:4, min:29,
+        a:{three:89, mid:70, drive:66, dunk:70, alley:64}, d:{perim:70, inter:45, steal:62},
+        skill:{ id:'ambush', zh:'弱侧埋伏', kind:'bench', cost:1,
+          text:'对手应对为【包夹】或【侧翼封堵】时，可从场下接手本回合出手，三分 DC -3' } },
+      { id:'tt',   zh:'特里斯坦·汤普森', short:'TT', no:13, pos:'C', sta:5, min:36,
+        a:{three:25, mid:35, drive:58, dunk:75, alley:78}, d:{perim:62, inter:82, steal:42},
+        skill:{ id:'putback', zh:'二次进攻', kind:'free', benchCost:1,
+          text:'出手不中时掷骰争抢前场篮板（DC 12），成功则获得一次重试；在场下可花 1 体能发动' } },
+    ],
+  },
+  GSW: {
+    zh:'金州勇士', abbr:'GSW', main:'#1D428A', alt:'#FFC72C', ink:'#ffffff',
+    players: [
+      { id:'kd',   zh:'凯文·杜兰特', short:'杜兰特', no:35, pos:'SF', sta:6, min:39,
+        a:{three:90, mid:92, drive:86, dunk:75, alley:88}, d:{perim:80, inter:74, steal:62},
+        skill:{ id:'unguardable', zh:'错位死刑', kind:'cd', cd:1,
+          text:'当防守人外围防守低于 85 时，中投与三分 DC -5' } },
+      { id:'dray', zh:'德雷蒙德·格林', short:'格林', no:23, pos:'PF', sta:6, min:39,
+        a:{three:80, mid:62, drive:66, dunk:74, alley:72}, d:{perim:88, inter:86, steal:82},
+        skill:{ id:'goalie', zh:'守门员', kind:'free', benchCost:1,
+          text:'在场时对手扣篮与空接 DC +4；在场下可花 1 体能对本回合发动一次' } },
+      { id:'curry',zh:'斯蒂芬·库里', short:'库里', no:30, pos:'PG', sta:5, min:38,
+        a:{three:99, mid:90, drive:82, dunk:36, alley:78}, d:{perim:62, inter:34, steal:70},
+        skill:{ id:'range', zh:'无限射程', kind:'free',
+          text:'防守应对对库里三分的 DC 加成永不超过 +2' } },
+      { id:'klay', zh:'克莱·汤普森', short:'克莱', no:11, pos:'SG', sta:5, min:34,
+        a:{three:98, mid:84, drive:68, dunk:65, alley:70}, d:{perim:82, inter:52, steal:58},
+        skill:{ id:'catchshoot', zh:'接球就投', kind:'free',
+          text:'打出【无球跑动】或【手递手】后三分 DC -5；不能作为【单打】执行人' } },
+      { id:'iggy', zh:'安德烈·伊戈达拉', short:'伊戈达拉', no:9, pos:'SF', sta:3, min:21,
+        a:{three:80, mid:72, drive:78, dunk:80, alley:78}, d:{perim:90, inter:66, steal:76},
+        skill:{ id:'clamps', zh:'死亡缠绕', kind:'bench', cost:1, maxUses:2,
+          text:'对手判定前可从场下接防，本回合对手所有出手 DC +5（全场两次）' } },
+    ],
+  },
+};
+
+// 真 2K17 三列锚点（OVR/3PT/DNK），仅供界面标注来源
+const K17 = {
+  lbj:[96,76,85], kyrie:[89,84,30], love:[82,84,55], jr:[77,89,70], tt:[81,25,75],
+  curry:[94,99,36], kd:[93,90,75], klay:[90,98,65], dray:[90,80,74], iggy:[81,80,80],
+};
+
+// ---------------------------------------------------------------- 体能
+// 消耗按本局累计上场次数递增（不是连续次数——连续会被交替使用绕过）
+function costOfNthUse(n) { return n <= 3 ? 1 : n <= 5 ? 2 : 3; }
+function maxUsesFor(sta) {
+  let spent = 0, uses = 0;
+  while (spent + costOfNthUse(uses + 1) <= sta) { uses++; spent += costOfNthUse(uses); }
+  return uses;
+}
+// 2K Stamina 在此的正确用法：决定体能过半后的手感衰减速度
+const STAMINA_2K = {
+  lbj:98, kyrie:97, love:93, jr:92, tt:90,
+  curry:98, kd:98, klay:91, dray:88, iggy:80,
+};
+function fatiguePenalty(p, cur) {
+  const half = p.sta / 2;
+  if (cur > half) return 0;
+  const missing = half - cur + 1;
+  const tough = (STAMINA_2K[p.id] ?? 90) / 98;   // 耐力好的人衰减慢
+  return Math.round(missing * TUNING.fatigueStep * (2 - tough));
+}
+
+// ---------------------------------------------------------------- DC 计算
+// 返回 { dc, parts:[{label, v}] }，parts 用于界面把每一项摊开给玩家看
+function computeDC(ctx) {
+  const {
+    shot, attacker, defender, offTactic = 'none', defResponse = 'none',
+    defCard = null, atkFatigue = 0, skills = {},
+  } = ctx;
+  const parts = [];
+  let dc = TUNING.baseDC[shot];
+  parts.push({ label: `${SHOT_ZH[shot]}基准`, v: dc });
+
+  // 所有「修正项」统一走 mod()，乘 TUNING.modScale 后取整。
+  // 为什么必须这样：修正项的原始跨度太大 —— 实测三分一项的总跨度是 27 格 DC
+  // （出手基准差 6 + 进攻属性 9 + 防守应对 5 + 干扰牌 4 + 防守属性 3），
+  // 而「45%~80%」这个目标区间在 d20 上只有 8 格。不缩放的话无论怎么调基准和上下限
+  // 都塞不进去，结果就是大量组合被封顶挤在下界，防守牌打不打都一样。
+  // Ethan 的要求：「有防守人的情况也应该在 50~70% 至少，有防守和无防守不能差太多，
+  // 大部分情况下是有对策牌的，不能让进攻效率那么差，反而应该高一点才好玩。」
+  const mod = (label, v) => {
+    if (!v) return;
+    const s = Math.round(v * TUNING.modScale);
+    if (!s) return;
+    parts.push({ label, v: s });
+    dc += s;
+  };
+
+  const av = attacker.a[shot];
+  mod(`${attacker.short} ${SHOT_ZH[shot]} ${av}`, -Math.round((av - 50) * TUNING.attrScale));
+
+  const dv = (shot === 'three' || shot === 'mid') ? defender.d.perim : defender.d.inter;
+  mod(`${defender.short} 防守 ${dv}`, Math.round((dv - 50) * TUNING.defScale));
+
+  let respMod = DEF_RESPONSE[defResponse].mod[shot];
+  if (skills.curryRange && attacker.id === 'curry' && shot === 'three') respMod = Math.min(respMod, 2);
+  mod(DEF_RESPONSE[defResponse].zh, respMod);
+
+  mod(OFF_TACTIC[offTactic].zh, OFF_TACTIC[offTactic].mod[shot]);
+
+  for (const [t, s, r, v, why] of COUNTERS) {
+    if (t === offTactic && s === shot && r === defResponse) {
+      if (defResponse === 'allsw') continue;              // 全员换防免疫错位惩罚
+      mod(why, v);
+    }
+  }
+
+  if (defCard) mod(DEF_CARD_META[defCard].zh, DEF_CARD_META[defCard].mod[shot]);
+
+  if (skills.lovePop && (defResponse === 'drop' || defResponse === 'blitz') && shot === 'three')
+    mod('高位外弹', -4);
+  if (skills.kyrieHandles && offTactic === 'iso' && (shot === 'drive' || shot === 'mid'))
+    mod('单挑无解', -4);
+  if (skills.kdMismatch && defender.d.perim < 85 && (shot === 'mid' || shot === 'three'))
+    mod('错位死刑', -5);
+  if (skills.klayCatch && (offTactic === 'motion' || offTactic === 'dho') && shot === 'three')
+    mod('接球就投', -5);
+  if (skills.jrAmbush && shot === 'three') mod('弱侧埋伏', -3);
+  if (skills.draymondGoalie && (shot === 'dunk' || shot === 'alley')) mod('守门员', 4);
+  if (skills.iggyClamps) mod('死亡缠绕', 5);
+
+  mod('体能下降', atkFatigue);
+  if (ctx.homeEdge) mod('主场之势', -TUNING.homeEdge);
+
+  dc = Math.max(TUNING.dcFloor, Math.min(TUNING.dcCeil, dc));
+  return { dc, parts, prob: (21 - dc) / 20 };
+}
+
+// ---------------------------------------------------------------- 随机
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const d20 = (rng) => 1 + Math.floor(rng() * 20);
+
+// (exports stripped for inline use)
+
+
+// ════════════════════════════════════════════════════════════════════
+// 状态机
+// ════════════════════════════════════════════════════════════════════
+const CH = new BroadcastChannel('qiyong-2017');
+const LS = 'qiyong-2017-match';
+const qs = new URLSearchParams(location.search);
+let MY = qs.get('side');                       // 'CLE' | 'GSW' | null(未定)
+
+const PHASE_ZH = { select:'盲选上场', tactic:'进攻战术', respond:'防守应对',
+  shot:'选择出手', defcard:'即时干扰', roll:'掷骰判定', result:'判定结果', over:'终场' };
+
+let S = null;                                   // 全局状态（两窗口一致）
+
+function freshState(seed, coachCLE, coachGSW) {
+  const rng = mulberry32(seed);
+  const shuf = a => { const b=a.slice(); for(let i=b.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; };
+  const mk = (tid, cid) => {
+    const d = buildDecks(cid);
+    return { teamId:tid, coach:cid, score:0,
+      players: ROSTERS[tid].players.map(p=>({ id:p.id, cur:p.sta, uses:0, rest:0, once:false, bench:0 })),
+      decks:{ off:shuf(d.off), def:shuf(d.def), tac:shuf(d.tac) },
+      hand:{ off:[], def:[], tac:[] }, lastMade:false };
+  };
+  const st = { seed, rollSeq:0, turn:0, phase:'select', offSide:'CLE',
+    sides:{ CLE:mk('CLE',coachCLE), GSW:mk('GSW',coachGSW) },
+    picks:{ CLE:null, GSW:null }, revealed:false,
+    cur:{ tactic:'none', response:'none', shot:null, defCard:null, benchFlags:{},
+      dc:null, parts:[], roll:null, made:null, tries:0, retryOffered:false, pendingShot:null, stealRoll:null, turnoverKind:null },
+    log:[], over:null };
+  // 起手 8 张：3 进攻 / 3 防守 / 2 战术，但战术必须保底"一张进攻战术 + 一张防守应对"。
+  // 实测不保底时有 37.8% 概率开局一张应对牌都没有 —— 近四成开局防守方只能干看着。
+  // 防守起手给 3 张（原来 2 张）：防守牌现在有 4 种（干扰/封盖/抢断/紧逼），
+  // 手上只攥 2 张时玩家根本感知不到它们之间的区别，「千篇一律」有一部分就是这么来的。
+  for (const sid of ['CLE','GSW']) {
+    const s = st.sides[sid];
+    for (let i=0;i<3;i++) if (s.decks.off.length) s.hand.off.push(s.decks.off.shift());
+    for (let i=0;i<3;i++) if (s.decks.def.length) s.hand.def.push(s.decks.def.shift());
+    // 从战术堆里各挑一张（保底），剩下随机
+    const takeFirst = pred => {
+      const i = s.decks.tac.findIndex(pred);
+      if (i < 0) return null;
+      return s.decks.tac.splice(i,1)[0];
+    };
+    const a = takeFirst(c => c in OFF_TACTIC);
+    const d = takeFirst(c => c in DEF_RESPONSE);
+    if (a) s.hand.tac.push(a);
+    if (d) s.hand.tac.push(d);
+    while (s.hand.tac.length < 2 && s.decks.tac.length) s.hand.tac.push(s.decks.tac.shift());
+  }
+  st.turn = 1;
+  return st;
+}
+
+// ─────────────────────────── 工具
+const P = (sid, pid) => ROSTERS[sid].players.find(p=>p.id===pid);
+const ST = (sid, pid) => S.sides[sid].players.find(p=>p.id===pid);
+const other = sid => sid==='CLE' ? 'GSW' : 'CLE';
+const afford = (sid,pid) => { const s=ST(sid,pid); return s.cur >= costOfNthUse(s.uses+1); };
+const budgetLeft = (sid,pid) => { const s=ST(sid,pid); let sp=0,e=0,n=s.uses;
+  while(sp+costOfNthUse(n+1)<=s.cur){n++;e++;sp+=costOfNthUse(n);} return e; };
+const deckTotal = sid => { const d=S.sides[sid].decks; return d.off.length+d.def.length+d.tac.length; };
+const handTotal = sid => { const h=S.sides[sid].hand; return h.off.length+h.def.length+h.tac.length; };
+const TURN_CAP = 34;
+
+function drawCard(sid, kind) {
+  const s = S.sides[sid];
+  if (!s.decks[kind].length) {
+    const alt = ['off','tac','def'].find(k=>s.decks[k].length);
+    if (!alt) return null;
+    kind = alt;
+  }
+  const c = s.decks[kind].shift();
+  s.hand[kind].push(c);
+  return kind;
+}
+// 弃牌策略：优先弃「数量最多」的那类，但**保证每类至少留 2 张**。
+// 原实现是无脑弃最多的那类 —— 起手 7 张已满，每回合摸 2 张就立刻触发弃牌，
+// 结果进攻牌一多就被优先弃掉，实测第 2 回合起玩家手上永远只剩 1 张进攻牌。
+// 这就是 Ethan「打到后面能出的牌少得可怜 / 没什么选择」的真凶。
+function autoDiscard(sid) {
+  const s = S.sides[sid];
+  const KEEP = 2;
+  while (handTotal(sid) > TUNING.handLimit) {
+    const over = ['off','def','tac'].filter(k=>s.hand[k].length > KEEP)
+      .sort((a,b)=>s.hand[b].length-s.hand[a].length);
+    // 每类都只剩 2 张以内却仍超上限（上限被改小等情况）→ 兜底弃最多的
+    if (!over.length) {
+      const any = ['off','def','tac'].filter(k=>s.hand[k].length)
+        .sort((a,b)=>s.hand[b].length-s.hand[a].length);
+      if (!any.length) break;
+      s.hand[any[0]].pop();
+      continue;
+    }
+    s.hand[over[0]].pop();
+  }
+}
+function logAdd(side, text, note, big) {
+  S.log.unshift({ t:S.turn, side, text, note:note||'', big:!!big });
+  if (S.log.length > 60) S.log.pop();
+}
+
+// ─────────────────────────── 技能旗标
+function skillFlags() {
+  const off = S.offSide, def = other(off);
+  const atk = P(off, S.picks[off]), dfd = P(def, S.picks[def]);
+  const bf = S.cur.benchFlags;
+  return {
+    curryRange: atk.id==='curry', lovePop: atk.id==='love',
+    kyrieHandles: atk.id==='kyrie' && S.cur.tactic==='iso',
+    kdMismatch: atk.id==='kd', klayCatch: atk.id==='klay',
+    draymondGoalie: dfd.id==='dray' || !!bf.draymondGoalie,
+    iggyClamps: !!bf.iggyClamps, jrAmbush: !!bf.jrAmbush,
+  };
+}
+function calcDC(shot) {
+  const off = S.offSide, def = other(off);
+  const atk = P(off, S.picks[off]), dfd = P(def, S.picks[def]);
+  const as = ST(off, atk.id);
+  return computeDC({ shot, attacker:atk, defender:dfd,
+    offTactic:S.cur.tactic, defResponse:S.cur.response, defCard:S.cur.defCard,
+    atkFatigue: fatiguePenalty(atk, as.cur), homeEdge: off==='CLE',
+    skills: skillFlags() });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 动作
+// ════════════════════════════════════════════════════════════════════
+const REDUCERS = {
+  pick(a) {
+    if (S.phase!=='select' || S.picks[a.side]) return;
+    S.picks[a.side] = a.pid;
+    // 自动切到等待方：玩家选完后视角自动跟随「该选人的人」，
+    // 否则 .seatrow.mine 还是刚选完那方（无可点元素），
+    // 玩家会以为卡死 —— 这个 bug 是真玩家也会踩的。
+    if (S.picks.CLE && S.picks.GSW) {
+      S.revealed = true;
+    } else if (!MY) {
+      // 首次盲选（无 ?side=，单窗口）才自动切视角
+      MY = S.picks.CLE ? 'GSW' : 'CLE';
+    }
+    // 双方都选完才推进后续流程（扣体能/摸牌/进入战术阶段）
+    if (S.picks.CLE && S.picks.GSW) {
+      const off = S.offSide, def = other(off);
+      // 扣体能：接管比赛可免费
+      const oa = ST(off, S.picks[off]);
+      const isLBJ = S.picks[off]==='lbj';
+      const free = isLBJ && S.sides[off].lastMade && !oa.once;
+      if (free) { oa.once = true; oa.uses++; logAdd(off, '接管比赛', '詹姆斯免费上场，全场仅此一次', true); }
+      else { oa.cur -= costOfNthUse(oa.uses+1); oa.uses++; }
+      for (const p of S.sides[off].players) {
+        if (p.id===S.picks[off]) { p.rest=0; continue; }
+        p.rest++; if (p.rest>=2) { p.rest=0; p.cur=Math.min(P(off,p.id).sta, p.cur+1); }
+      }
+      const da = ST(def, S.picks[def]);
+      da.cur -= costOfNthUse(da.uses+1); da.uses++;
+      for (const p of S.sides[def].players) {
+        if (p.id===S.picks[def]) { p.rest=0; continue; }
+        p.rest++; if (p.rest>=2) { p.rest=0; p.cur=Math.min(P(def,p.id).sta, p.cur+1); }
+      }
+      // 摸牌阶段：Ethan 定的规则 ——
+      //   进攻方选好人后摸 1 张进攻牌 + 1 张战术牌
+      //   防守方选好人后摸 1 张防守牌 + 1 张战术牌
+      // 原来防守方只摸 1 张（还常在 def/tac 二选一里选到战术牌），
+      // 于是打到后半局防守牌必然枯竭 —— 这就是「没什么选择」的直接原因。
+      const k1 = drawCard(off,'off'), k2 = drawCard(off,'tac');
+      const k3 = drawCard(def,'def'),  k4 = drawCard(def,'tac');
+      // 保底：某类手牌为空则强制补一张。空手 = 白丢一个回合，是挫败不是策略。
+      let k1b = null, k3b = null;
+      if (!S.sides[off].hand.off.length) k1b = drawCard(off,'off');
+      if (!S.sides[def].hand.def.length) k3b = drawCard(def,'def');
+      const zh = k => ({off:'进攻',def:'防守',tac:'战术'})[k];
+      logAdd(off, `${P(off,S.picks[off]).short} 进攻 · ${P(def,S.picks[def]).short} 防守`,
+        `${ROSTERS[off].abbr} 摸 ${[k1,k2,k1b].filter(Boolean).map(zh).join('+')||'—'}`
+        + (k1b ? '（保底）' : '')
+        + ` · ${ROSTERS[def].abbr} 摸 ${[k3,k4,k3b].filter(Boolean).map(zh).join('+')||'—'}`
+        + (k3b ? '（保底）' : ''));
+      // 摸完立刻弃到上限（否则回合中会显示超上限，容易误解成 bug）
+      autoDiscard(off); autoDiscard(def);
+      S.phase = 'tactic';
+    }
+  },
+  tactic(a) {
+    if (S.phase!=='tactic') return;
+    const off = S.offSide, s = S.sides[off];
+    if (a.card) {
+      const i = s.hand.tac.indexOf(a.card);
+      if (i<0) return;
+      s.hand.tac.splice(i,1);
+      if (a.card in OFF_TACTIC) { S.cur.tactic = a.card;
+        logAdd(off, OFF_TACTIC[a.card].zh, '进攻战术'); }
+      else if (a.card==='hunt') {
+        const tgt = a.target; const ts = ST(other(off), tgt);
+        if (ts) { ts.cur = Math.max(0, ts.cur-1);
+          logAdd(off, '点哥战术', `${P(other(off),tgt).short} 被消耗 1 点体能`, true); }
+      }
+    } else logAdd(off, '不打战术', '直接进入应对');
+    S.phase = 'respond';
+  },
+  respond(a) {
+    if (S.phase!=='respond') return;
+    const def = other(S.offSide), s = S.sides[def];
+    if (a.card) {
+      const i = s.hand.tac.indexOf(a.card);
+      if (i<0) return;
+      s.hand.tac.splice(i,1);
+      if (a.card in DEF_RESPONSE) { S.cur.response = a.card;
+        logAdd(def, DEF_RESPONSE[a.card].zh, `让出：${DEF_RESPONSE[a.card].gives}`); }
+      else if (a.card==='timeout') {
+        S.cur.tactic = 'none'; logAdd(def, '教练暂停', '对方战术被取消', true);
+      }
+    } else logAdd(def, '原始对位', '无应对牌，只靠球员防守属性');
+    S.phase = 'shot';
+    // 进攻方在战术阶段就已经选好出手方式 → 应对结算完直接出手，不再问他一遍
+    if (S.cur.pendingShot) {
+      const c = S.cur.pendingShot; S.cur.pendingShot = null;
+      REDUCERS.shot({ type:'shot', card:c });
+    }
+  },
+  bench(a) {
+    const s = ST(a.side, a.pid);
+    if (!s || s.cur < 1) return;
+    const def = other(S.offSide);
+    if (a.pid==='iggy') { if (s.bench>=2) return; s.bench++; s.cur--; S.cur.benchFlags.iggyClamps=true;
+      logAdd(def,'死亡缠绕','伊戈达拉从场下接防 · 全部出手 DC +5',true); }
+    if (a.pid==='dray') { s.cur--; S.cur.benchFlags.draymondGoalie=true;
+      logAdd(def,'守门员','格林场下协防 · 扣篮空接 DC +4',true); }
+    if (a.pid==='jr') { s.cur--; S.cur.benchFlags.jrAmbush=true;
+      logAdd(S.offSide,'弱侧埋伏','JR 从场下接手出手 · 三分 DC -3',true); }
+  },
+  shot(a) {
+    // 允许从战术阶段直接出进攻牌 = 「不打战术，直接进攻」。
+    // 但不能跳过防守方的应对权 —— 那是他唯一的战术层决策。
+    // 做法：先当作打出「无战术」推进到 respond，把这张进攻牌暂存，
+    // 等对手应对完再自动出手（DC 用应对后的最新值算）。
+    if (S.phase==='tactic') {
+      const off0 = S.offSide, s0 = S.sides[off0];
+      if (s0.hand.off.indexOf(a.card) < 0) return;
+      S.cur.pendingShot = a.card;
+      logAdd(off0, '不打战术，直接进攻', `已选定出手方式，等对手应对`);
+      S.phase = 'respond';
+      return;
+    }
+    if (S.phase!=='shot') return;
+    const off = S.offSide, s = S.sides[off];
+    const i = s.hand.off.indexOf(a.card);
+    if (i<0) return;
+    s.hand.off.splice(i,1);
+    S.cur.shot = a.card;
+    const r = calcDC(a.card);
+    S.cur.dc = r.dc; S.cur.parts = r.parts;
+    logAdd(off, `${P(off,S.picks[off]).short} ${SHOT_ZH[a.card]}`, `需要 ${r.dc} 以上（${Math.round(r.prob*100)}%）`);
+    S.phase = 'defcard';
+  },
+  defcard(a) {
+    if (S.phase!=='defcard') return;
+    const def = other(S.offSide), off = S.offSide, s = S.sides[def];
+    if (a.card) {
+      const i = s.hand.def.indexOf(a.card);
+      if (i<0) return;
+      s.hand.def.splice(i,1);
+      S.cur.defCard = a.card;
+      const meta = DEF_CARD_META[a.card];
+
+      // ── 抢断：赌博式防守。几乎不提难度，但有机会直接断球结束回合。
+      // 这是让四种防守牌真正区分开来的关键 —— 原来 canSteal 定义了却从未实现，
+      // 抢断退化成另一张「+3 难度」，玩家自然觉得千篇一律。
+      if (meta.canSteal) {
+        const rng = mulberry32(S.seed * 7919 + S.rollSeq++ * 104729);
+        const sv = d20(rng);
+        S.cur.stealRoll = sv;
+        if (sv >= TUNING.stealDC) {
+          logAdd(def, `抢断成功（掷 ${sv} ≥ ${TUNING.stealDC}）`,
+            `${P(off,S.picks[off]).short} 被直接断球，本回合结束`, true);
+          S.cur.made = false; S.cur.turnover = true; S.cur.turnoverKind = 'steal';
+          S.cur.roll = null;
+          S.sides[off].lastMade = false;
+          S.phase = 'result';
+          return;
+        }
+        logAdd(def, `抢断失败（掷 ${sv} < ${TUNING.stealDC}）`,
+          '扑空了，几乎没能干扰到这次出手', true);
+      }
+
+      // ── 紧逼：中等提难度，额外消耗对手上场球员的体能
+      if (meta.drainStamina) {
+        const atk = ST(off, S.picks[off]);
+        if (atk && atk.cur > 0) {
+          atk.cur--;
+          logAdd(def, '紧逼',
+            `${P(off,S.picks[off]).short} 体能 -${meta.drainStamina}（剩 ${atk.cur}）`, true);
+        }
+      }
+
+      const r = calcDC(S.cur.shot);
+      S.cur.dc = r.dc; S.cur.parts = r.parts;
+      if (!meta.canSteal) logAdd(def, meta.zh, `难度抬到 ${r.dc}`);
+    }
+    S.phase = 'roll';
+  },
+  roll() {
+    if (S.phase!=='roll') return;
+    const rng = mulberry32(S.seed * 7919 + S.rollSeq++ * 104729);
+    const v = d20(rng);
+    const off = S.offSide;
+    S.cur.roll = v; S.cur.tries++;
+    const nat20 = v===20, nat1 = v===1;
+    let made = nat20 || (!nat1 && v >= S.cur.dc);
+    S.cur.made = made;
+    if (nat1) {
+      logAdd(off, `掷出 1 · 失误`, '直接丢掉球权', true);
+      S.phase='result'; S.cur.turnover=true; S.cur.turnoverKind='nat1'; return;
+    }
+    if (made) {
+      const pts = SHOT_PTS[S.cur.shot] + (nat20 ? 1 : 0);
+      S.sides[off].score += pts; S.sides[off].lastMade = true;
+      logAdd(off, nat20 ? `掷出 20 · 打进加罚 ${pts} 分` : `掷出 ${v} · 命中 ${pts} 分`,
+        nat20 ? 'AND ONE' : `需要 ${S.cur.dc}`, true);
+      if (S.sides[off].score >= TUNING.targetScore) { S.over = off; S.phase='over'; return; }
+    } else {
+      S.sides[off].lastMade = false;
+      logAdd(off, `掷出 ${v} · 不中`, `需要 ${S.cur.dc}`);
+    }
+    S.phase = 'result';
+  },
+  // 放弃这次进攻：shot 阶段的无条件出路（不出手 → 直接判为未得分 → 交换球权）。
+  // 必须是独立 reducer：原来复用 defcard 会进 roll 阶段，而 cur.shot 为 null，
+  // roll reducer 里 SHOT_PTS[null] 会算出 NaN。
+  giveup() {
+    if (S.phase!=='shot') return;
+    const off = S.offSide;
+    logAdd(off, '放弃这次进攻', S.sides[off].hand.off.length ? '未出手' : '手上没有进攻牌', true);
+    S.cur.made = false; S.cur.roll = null;
+    S.sides[off].lastMade = false;
+    S.phase = 'result';
+  },
+  retry(a) {
+    if (S.phase!=='result' || S.cur.made) return;
+    const off = S.offSide;
+    const tt = ST(off,'tt');
+    const ttOn = S.picks[off]==='tt';
+    if (!ttOn) { if (!tt || tt.cur<1) return; tt.cur--; }
+    const rng = mulberry32(S.seed * 31337 + S.rollSeq++ * 15485863);
+    const rb = d20(rng);
+    if (rb >= TUNING.reboundDC) {
+      logAdd(off, `前场篮板 ${rb} ≥ ${TUNING.reboundDC}`, 'TT 抢下二次进攻机会', true);
+      S.cur.roll = null; S.cur.made = null; S.cur.shot = null;
+      S.cur.defCard = null; S.cur.dc = null; S.cur.parts = [];
+      S.cur.retryOffered = true;
+      S.phase = 'shot';
+    } else {
+      logAdd(off, `前场篮板 ${rb} < ${TUNING.reboundDC}`, '争抢失败，球权交换');
+      S.cur.retryOffered = true;
+    }
+  },
+  next() {
+    if (S.phase!=='result') return;
+    autoDiscard(S.offSide);
+    autoDiscard(other(S.offSide));   // 防守方也摸牌了，同样要弃到上限
+    S.offSide = other(S.offSide);
+    S.picks = { CLE:null, GSW:null }; S.revealed = false;
+    S.cur = { tactic:'none', response:'none', shot:null, defCard:null, benchFlags:{},
+      dc:null, parts:[], roll:null, made:null, tries:0, retryOffered:false, pendingShot:null, stealRoll:null, turnoverKind:null };
+    S.turn++;
+    const A = S.sides.CLE.score, B = S.sides.GSW.score;
+    if (deckTotal('CLE')===0 || deckTotal('GSW')===0) {
+      S.over = A>B ? 'CLE' : B>A ? 'GSW' : 'TIE'; S.phase='over';
+      logAdd(null,'牌堆见底 · 终场','分高者胜',true); return;
+    }
+    if (S.turn > TURN_CAP) {
+      S.over = A>B ? 'CLE' : B>A ? 'GSW' : 'TIE'; S.phase='over';
+      logAdd(null,'回合上限 · 终场','',true); return;
+    }
+    S.phase = 'select';
+  },
+};
+
+function dispatch(action, local) {
+  const fn = REDUCERS[action.type];
+  if (!fn) return;
+  fn(action);
+  save(); render();
+  if (local) CH.postMessage({ kind:'action', action });
+}
+function save() { localStorage.setItem(LS, JSON.stringify(S)); }
+
+// ════════════════════════════════════════════════════════════════════
+// 渲染
+// ════════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function render() {
+  if (!S) return;
+  if (!MY) MY = whoActs() || 'CLE';
+  $('app').classList.remove('hide');
+  const off = S.offSide, def = other(off), opp = other(MY);
+
+  // 队伍标签
+  const T = { my: ROSTERS[MY], opp: ROSTERS[opp] };
+  $('myAb').textContent = T.my.abbr;   $('oppAb').textContent = T.opp.abbr;
+  $('mySc').textContent = S.sides[MY].score;  $('oppSc').textContent = S.sides[opp].score;
+  $('myCoach').textContent = COACHES[S.sides[MY].coach].zh;
+  $('oppCoach').textContent = COACHES[S.sides[opp].coach].zh;
+  // 盲选进度只在队标区显示：谁已锁定是合法公开信息，但绝不能挂在某张牌上
+  const lockTxt = sid => {
+    if (S.phase!=='select') return '';
+    return S.picks[sid] ? '● 已锁定' : '○ 选人中';
+  };
+  $('myLock').textContent = lockTxt(MY);
+  $('oppLock').textContent = lockTxt(opp);
+  $('myLock').classList.toggle('on', !!S.picks[MY] && S.phase==='select');
+  $('oppLock').classList.toggle('on', !!S.picks[opp] && S.phase==='select');
+  $('rowMine').className = 'seatrow mine is' + MY;
+  $('rowOpp').className = 'seatrow opp is' + opp;
+
+  const phZh = PHASE_ZH[S.phase] || S.phase;
+  const actorSide = whoActs();
+  $('phase').textContent = phZh;
+  $('turnlb').innerHTML = `回合 <b class="num" style="color:var(--text)">${S.turn}</b> · ${ROSTERS[off].abbr} 进攻`
+    + (actorSide && actorSide!==MY ? ` · <span style="color:var(--hot)">等 ${ROSTERS[actorSide].abbr}</span>` : '');
+  $('vbCLE').classList.toggle('on', MY==='CLE');
+  $('vbGSW').classList.toggle('on', MY==='GSW');
+
+  renderSeats('mySeats', MY, true);
+  renderSeats('oppSeats', opp, false);
+  renderDuel(off, def);
+  renderDie();
+  renderPlayed();
+  renderPrompt(off, def);
+  renderFlow();
+  renderCheat();
+  renderInfo(opp);
+  renderHand(off, def);
+  if (S.phase==='over') renderOver(); else $('veil').classList.add('hide');
+  // 进入掷骰阶段就自动开始判定 —— 双方都不需要再点一下
+  if (S.phase==='roll' && typeof autoRoll === 'function') autoRoll();
+}
+
+// ───────── 武将排（竖版卡牌）
+function renderSeats(elId, sid, isMine) {
+  const box = $(elId);
+  const canPick = S.phase==='select' && MY===sid && !S.picks[sid];
+  const iAmOff = sid === S.offSide;
+  box.innerHTML = ROSTERS[sid].players.map(p => {
+    const st = ST(sid, p.id);
+    const mySide = MY===sid;
+    const onField = S.picks[sid]===p.id && (S.revealed || mySide);
+    // 盲选期间对手整排全部翻面。只盖住被选中的那张 = 用排除法把答案写在脸上。
+    const facedown = !S.revealed && !mySide;
+    const ok = afford(sid, p.id);
+    const free = p.id==='lbj' && S.sides[sid].lastMade && !st.once && iAmOff;
+    const cost = costOfNthUse(st.uses+1);
+    const bars = Array.from({length:p.sta},(_,i)=>`<u class="${i<st.cur?'on':''}"></u>`).join('');
+    const fat = fatiguePenalty(p, st.cur);
+    const atts = iAmOff
+      ? `<span>三分<b>${p.a.three}</b></span><span>中投<b>${p.a.mid}</b></span><span>突破<b>${p.a.drive}</b></span><span>扣篮<b>${p.a.dunk}</b></span>`
+      : `<span>外防<b>${p.d.perim}</b></span><span>内防<b>${p.d.inter}</b></span><span>抢断<b>${p.d.steal}</b></span><span>体能<b>${st.cur}/${p.sta}</b></span>`;
+    const cls = ['seat', sid==='CLE'?'cle':'gsw'];
+    if (onField) cls.push('onfield');
+    if (facedown) cls.push('facedown');
+    if (canPick && (ok||free)) cls.push('pick');
+    if (!ok && !free) cls.push('spent');
+    const attr = canPick && (ok||free) ? `data-act="pick" data-pid="${p.id}"` : '';
+    // 翻面卡：DOM 里不能残留任何球员信息。只用 visibility:hidden 藏起来的话，
+    // 查看源码或开发者工具就能读到 —— 那不算真的盖住。
+    if (facedown) return `<div class="seat ${sid==='CLE'?'cle':'gsw'} facedown"></div>`;
+    const tip = ` title="${esc(p.zh)}｜${esc(p.skill.zh)}：${esc(p.skill.text)}"`;
+    return `<div class="${cls.join(' ')}" ${attr}${tip}>
+      <span class="stripe"></span><span class="wm num">${p.no}</span>
+      ${onField?'<span class="badge">在场</span>':''}
+      <div class="top"><div class="nmline"><span class="nm">${esc(p.short)}</span>
+        <span class="po">${p.pos} · ${p.no}号</span></div></div>
+      <div class="mid"><div class="sta">${bars}</div><div class="atts">${atts}</div></div>
+      <div class="sk"><i>${esc(p.skill.zh)}</i> ${esc(p.skill.text)}</div>
+      <div class="foot"><span>体能 ${st.cur}/${p.sta}</span>
+        <span class="${fat?'bad':(free?'free':'')}">${
+          fat ? `手感 -${fat}` : free ? '免费上场' : `×${st.uses} · ${cost}点`}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ───────── 对战台
+function renderDuel(off, def) {
+  const paint = (el, sid, role) => {
+    const pid = S.picks[sid];
+    const show = pid && (S.revealed || MY===sid);
+    if (!show) {
+      el.className = 'dcard void';
+      el.innerHTML = pid
+        ? `<div class="q">✦</div><div class="t">${ROSTERS[sid].abbr} 已锁定</div>`
+        : `<div class="q">? ? ?</div><div class="t">${ROSTERS[sid].abbr} ${role==='off'?'进攻':'防守'}人未定</div>`;
+      return;
+    }
+    const p = P(sid,pid), st = ST(sid,pid);
+    const fat = fatiguePenalty(p, st.cur);
+    el.className = 'dcard ' + (sid==='CLE'?'cle':'gsw');
+    const line = role==='off'
+      ? `<span>三分 <b>${p.a.three}</b></span><span>中投 <b>${p.a.mid}</b></span><span>突破 <b>${p.a.drive}</b></span><span>扣篮 <b>${p.a.dunk}</b></span><span>空接 <b>${p.a.alley}</b></span>`
+      : `<span>外防 <b>${p.d.perim}</b></span><span>内防 <b>${p.d.inter}</b></span><span>抢断 <b>${p.d.steal}</b></span><span>体能 <b>${st.cur}/${p.sta}</b></span>`;
+    el.innerHTML = `<div class="hd"><span class="n num">${p.no}</span><span class="nm">${esc(p.short)}</span>
+        <span class="role">${role==='off'?'进攻':'防守'}${!S.revealed?' · 仅你可见':''}</span></div>
+      <div class="line">${line}</div>
+      <div class="sk"><i>${esc(p.skill.zh)}</i> ${esc(p.skill.text)}</div>
+      ${fat?`<div class="fat">体能下降 · 所有出手难度 +${fat}</div>`:''}`;
+  };
+  paint($('duelOff'), off, 'off');
+  paint($('duelDef'), def, 'def');
+}
+
+// ───────── 骰子
+function renderDie() {
+  const die = $('die'), vs = $('vsmark');
+  if (S.cur.dc == null) {
+    die.classList.add('hide'); vs.classList.remove('hide');
+    $('dieneed').textContent = ''; $('dieverd').textContent = '';
+    return;
+  }
+  die.classList.remove('hide'); vs.classList.add('hide');
+  const pct = Math.round((21-S.cur.dc)/20*100);
+  $('dieneed').innerHTML = `需 <span class="num" style="color:var(--hot)">${S.cur.dc}</span> 以上<br>
+    <span style="font-family:var(--f-ui);font-size:11px;letter-spacing:.06em;color:var(--muted)">${pct}% · ${SHOT_ZH[S.cur.shot]||''}</span>`;
+  die.className = 'die';
+  if (S.cur.roll==null) { $('dieval').textContent='—'; $('dieverd').textContent=''; return; }
+  $('dieval').textContent = S.cur.roll;
+  const v = $('dieverd');
+  if (S.cur.roll===20) { die.classList.add('crit'); v.textContent='加罚'; v.style.color='var(--cle-gold)'; }
+  else if (S.cur.roll===1) { die.classList.add('crit1'); v.textContent='失误'; v.style.color='var(--lose)'; }
+  else if (S.cur.made) { die.classList.add('hit'); v.textContent='命中'; v.style.color='var(--win)'; }
+  else { die.classList.add('miss'); v.textContent='不中'; v.style.color='var(--lose)'; }
+}
+
+// ───────── 桌面上已打出的牌
+function renderPlayed() {
+  const items = [];
+  if (S.cur.tactic!=='none') items.push({ k:'t', n:OFF_TACTIC[S.cur.tactic].zh, s:'进攻战术' });
+  if (S.cur.response!=='none') items.push({ k:'t', n:DEF_RESPONSE[S.cur.response].zh,
+    s:'让出 '+DEF_RESPONSE[S.cur.response].gives });
+  if (S.cur.shot) items.push({ k:'o', n:SHOT_ZH[S.cur.shot], s:SHOT_PTS[S.cur.shot]+' 分' });
+  if (S.cur.defCard) items.push({ k:'d', n:DEF_CARD_META[S.cur.defCard].zh, s:'即时干扰' });
+  for (const [f,txt] of [['iggyClamps','死亡缠绕'],['draymondGoalie','守门员'],['jrAmbush','弱侧埋伏']])
+    if (S.cur.benchFlags[f]) items.push({ k:'d', n:txt, s:'场下技能' });
+  $('played').innerHTML = `<span class="lb">桌面</span>` + (items.length
+    ? items.map(i=>`<span class="pcd ${i.k}">${esc(i.n)}<em>${esc(i.s)}</em></span>`).join('')
+    : `<span class="none">本回合还没有牌打出</span>`);
+  const dp = $('dcparts');
+  if (S.cur.parts && S.cur.parts.length) {
+    dp.classList.remove('hide');
+    dp.innerHTML = S.cur.parts.map(p=>
+      `<span class="chip ${p.v<0?'neg':'pos'}">${esc(p.label)}<i>${p.v>0?'+':''}${p.v}</i></span>`).join('');
+  } else dp.classList.add('hide');
+}
+
+// ───────── 提示 + 动作按钮
+function renderPrompt(off, def) {
+  const pr = $('prompt'), ac = $('acts');
+  const iAmOff = MY===off, iAmDef = MY===def;
+  const A = (label, desc, cls, attrs) =>
+    `<button class="act ${cls||''}" ${attrs||''}><span class="t"><b>${esc(label)}</b>${
+      desc&&desc.dc!=null?`<span>需 ${desc.dc}·${desc.pct}%</span>`:''}</span>${
+      desc&&desc.text?`<span class="d">${esc(desc.text)}</span>`:''}</button>`;
+  const wait = (txt, side) => {
+    pr.innerHTML = `<h3>等待 ${ROSTERS[side].zh}</h3><div class="sub">${txt}</div>`;
+    ac.innerHTML = A(`切到 ${ROSTERS[side].zh} 视角 →`, { text:'自己一个人打时用；开两个窗口则无需切换' },
+      'prime', `data-switch="${side}"`);
+  };
+  let h = '', a = '';
+
+  if (S.phase==='select') {
+    if (S.picks[MY]) {
+      const oppPicked = !!S.picks[other(MY)];
+      pr.innerHTML = `<h3>已锁定 ${esc(P(MY,S.picks[MY]).short)}</h3><div class="sub">${
+        oppPicked ? '双方都已选定，正在翻牌…' : `等待 ${ROSTERS[other(MY)].zh} 选人。`}</div>`;
+      ac.innerHTML = oppPicked ? '' :
+        A(`切到 ${ROSTERS[other(MY)].zh} 视角 →`, { text:'替对方选人，选完自动翻牌' }, 'prime', `data-switch="${other(MY)}"`);
+      return;
+    }
+    const role = iAmOff ? '进攻' : '防守';
+    pr.innerHTML = `<h3>点下排的球员卡，派他上场${role}</h3>
+      <div class="sub">${S.picks[other(MY)] ? '对手已选定（你看不到是谁），你选完立刻翻牌。'
+        : '对手看不到你的选择，双方同时翻牌。'}
+      体能消耗按本局累计上场次数递增：前 3 次各 1 点，第 4-5 次各 2 点，第 6 次起 3 点。</div>`;
+    ac.innerHTML = '';
+    return;
+  }
+  if (S.phase==='tactic') {
+    if (!iAmOff) return wait('进攻方正在选择战术', off);
+    pr.innerHTML = `<h3>打战术，或者直接进攻</h3><div class="sub">
+      <b style="color:var(--hot)">两条路都行</b> ——
+      打<b>战术牌</b>先改难度（对手随后应对）；或者直接打<b>进攻牌</b>省掉战术这一步。
+      牌面标的是当前难度，对手应对后会重算。</div>`;
+    ac.innerHTML = A('不打战术', { text:'保留手牌，直接让对手应对' }, 'gh', 'data-act="tactic"');
+    return;
+  }
+  if (S.phase==='respond') {
+    if (!iAmDef) return wait('防守方正在选择应对', def);
+    pr.innerHTML = `<h3>选择防守应对</h3><div class="sub">对手打出
+      <b style="color:var(--hot)">${OFF_TACTIC[S.cur.tactic].zh}</b>。
+      把<b>战术牌</b>拖到桌面区应对 —— 每种防守都必须让出某种球，选让出最不疼的那个。</div>`;
+    ac.innerHTML = A('原始对位', { text:'不出牌，只靠球员防守属性' }, 'gh', 'data-act="respond"')
+      + benchActs(def, ['iggy','dray'], A);
+    return;
+  }
+  if (S.phase==='shot') {
+    if (!iAmOff) return wait('进攻方正在选择出手方式', off);
+    const rows = [];
+    const seen = new Set();
+    for (const c of S.sides[off].hand.off) {
+      if (seen.has(c)) continue; seen.add(c);
+      const r = calcDC(c);
+      rows.push({ c, dc:r.dc, pct:Math.round(r.prob*100), ev:r.prob*SHOT_PTS[c] });
+    }
+    rows.sort((x,y)=>y.ev-x.ev);
+    pr.innerHTML = `<h3>${S.cur.retryOffered?'二次进攻 · ':''}选择出手方式</h3><div class="sub">
+      对手应对 <b style="color:var(--hot)">${DEF_RESPONSE[S.cur.response].zh}</b>，让出
+      ${DEF_RESPONSE[S.cur.response].gives}。${rows.length
+        ? `点底部<b>进攻牌</b>出手（也可拖到你的球员卡）—— 牌面已标好难度。
+           当前最优：<b>${SHOT_ZH[rows[0].c]}</b>（需 ${rows[0].dc}，期望 ${rows[0].ev.toFixed(2)} 分）`
+        : `<b style="color:var(--lose)">你手上没有进攻牌了</b> —— 只能放弃这次进攻，交换球权。`}</div>`;
+    // 兜底按钮必须无条件存在。原来写成「仅当 rows.length===0 时给」，
+    // 于是「有牌但 bench 按钮已用完」的局面下整个界面没有任何可点项 = 真卡死。
+    // Ethan 实测踩到的就是这个（叫 TT 抢板 + JR 埋伏之后按钮全消失）。
+    ac.innerHTML = benchActs(off, ['jr'], A)
+      + A(rows.length ? '放弃这次进攻' : '放弃这次进攻（无牌可出）',
+          { text: rows.length ? '不出手，直接交换球权' : '手上没有进攻牌，交换球权' },
+          rows.length ? 'gh' : 'prime', 'data-act="giveup"');
+    return;
+  }
+  if (S.phase==='defcard') {
+    if (!iAmDef) return wait('防守方决定是否即时干扰', def);
+    // 四种防守牌用途完全不同，提示里必须说清，否则玩家只会按"+难度最大"无脑出牌
+    const ROLE = Object.entries(DEF_CARD_META)
+      .map(([,m]) => `<b style="color:var(--hot)">${esc(m.zh)}</b>＝${esc(m.role)}`).join(' · ');
+    pr.innerHTML = `<h3>要不要花一张防守牌</h3><div class="sub">对手要投
+      <b style="color:var(--hot)">${SHOT_ZH[S.cur.shot]}</b>，当前需要 ${S.cur.dc} 以上（${Math.round((21-S.cur.dc)/20*100)}%）。
+      把<b>防守牌</b>拖到防守位 —— 四种牌用途不同：${ROLE}。</div>`;
+    ac.innerHTML = A('不干扰', { text:'保留手牌，直接掷骰' }, 'gh', 'data-act="defcard"')
+      + benchActs(def, ['iggy','dray'], A);
+    return;
+  }
+  if (S.phase==='roll') {
+    // 自动掷骰：所有修正在防守方决定完干扰的那一刻就锁定了，
+    // 再要求任何一方点一下「掷 d20」是纯粹的多余操作（Ethan 明确指出）。
+    const pct = Math.round((21-S.cur.dc)/20*100);
+    pr.innerHTML = `<h3>骰子判定中</h3><div class="sub">
+      ${esc(P(off,S.picks[off]).short)} ${SHOT_ZH[S.cur.shot]} · 需 <b>${S.cur.dc}</b> 以上（${pct}%）。
+      自然 20 = 打进加罚，自然 1 = 失误直接丢球权。</div>`;
+    ac.innerHTML = A('重掷（若卡住）', { text:'正常情况下骰子会自动落定' }, 'gh', 'data-act="roll"');
+    return;
+  }
+  if (S.phase==='result') {
+    const off2 = S.offSide;
+    const tt = ST(off2,'tt'), ttOn = S.picks[off2]==='tt';
+    // 手上还有进攻牌才值得拼板 —— 抢到板但无牌可打是纯粹的空转
+    const hasShotCard = S.sides[off2].hand.off.length > 0;
+    const canRetry = !S.cur.made && !S.cur.turnover && !S.cur.retryOffered && S.cur.tries<3
+      && hasShotCard && (ttOn || (tt && tt.cur>=1));
+    const gaveUp = S.cur.roll == null && !S.cur.made && !S.cur.turnover;
+    const TO_TEXT = {
+      nat1:  '掷出 1 —— 失误，球权直接交换。',
+      steal: `被${esc(P(def,S.picks[def]).short)}直接断球（掷 ${S.cur.stealRoll} ≥ ${TUNING.stealDC}），球权交换。`,
+    };
+    pr.innerHTML = `<h3>${S.cur.made?`得分 +${SHOT_PTS[S.cur.shot]+(S.cur.roll===20?1:0)}`
+        : gaveUp ? '放弃进攻' : S.cur.turnover ? '失误' : '未得分'}</h3>
+      <div class="sub">${S.cur.turnover ? (TO_TEXT[S.cur.turnoverKind] || '失误，球权交换。')
+        : S.cur.made ? '本回合结束 —— 一回合最多得一球。'
+        : gaveUp ? '本次进攻未出手，球权交换。'
+        : !hasShotCard && !S.cur.retryOffered ? '出手不中，而且手上没有进攻牌了 —— 抢到板也没牌可投。'
+        : '出手不中。'}</div>`;
+    a = '';
+    if (canRetry && MY===off2)
+      a += A(ttOn?'TT 拼前场篮板':'从场下叫 TT 拼板',
+        { text:`掷 d20 ≥ ${TUNING.reboundDC} 则再来一次出手${ttOn?'':'（消耗 TT 1 点体能）'}` }, 'prime', 'data-act="retry"');
+    if (canRetry && MY!==off2)
+      a += A(`切到 ${ROSTERS[off2].zh} 视角 →`, { text:'进攻方可以拼前场篮板' }, '', `data-switch="${off2}"`);
+    a += A('下一回合', { text:'交换球权' }, canRetry?'':'prime', 'data-act="next"');
+    ac.innerHTML = a;
+    return;
+  }
+  pr.innerHTML = ''; ac.innerHTML = '';
+}
+function benchActs(sid, ids, A) {
+  if (MY!==sid) return '';
+  let h = '';
+  for (const id of ids) {
+    const p = ROSTERS[sid].players.find(x=>x.id===id);
+    if (!p || S.picks[sid]===id) continue;
+    const st = ST(sid,id);
+    if (st.cur<1) continue;
+    if (id==='iggy' && st.bench>=2) continue;
+    const flag = id==='iggy'?'iggyClamps':id==='dray'?'draymondGoalie':'jrAmbush';
+    if (S.cur.benchFlags[flag]) continue;
+    h += A(`场下 · ${p.skill.zh}`, { text:`${p.short}｜${p.skill.text}｜消耗 1 点体能（剩 ${st.cur}）` },
+      'gh', `data-act="bench" data-pid="${id}"`);
+  }
+  return h;
+}
+
+// ───────── 日志
+function renderFlow() {
+  $('flow').innerHTML = `<div class="ft">回合流</div>` + (S.log.length
+    ? S.log.map(l=>`<div class="li ${l.side?(l.side==='CLE'?'cle':'gsw'):''} ${l.big?'big':''}">
+        <b>T${l.t}</b><span>${esc(l.text)}${l.note?` <s>${esc(l.note)}</s>`:''}</span></div>`).join('')
+    : `<div style="padding:14px 16px;color:var(--faint);font-size:12px;line-height:1.7">
+        每一步都会记在这里：谁上场、打了什么战术、对手怎么应对、骰子掷了多少。<br>
+        一回合最多得一球；不中时 TT 可拼前场篮板换一次重试；先得 ${TUNING.targetScore} 分获胜。</div>`);
+}
+
+// 攻防相克表（右栏常驻参考。原来放在日志下面会被滚出可视区）
+function renderCheat() {
+  $('cheatbox').innerHTML = `<table class="cheat"><tbody>
+    ${Object.entries(DEF_RESPONSE).filter(([k])=>k!=='none').map(([k,v])=>{
+      const active = S.cur.response === k;
+      const best = SHOTS.slice().sort((a,b)=>v.mod[a]-v.mod[b])[0];
+      return `<tr class="${active?'on':''}">
+        <td class="c1">${esc(v.zh)}</td>
+        <td class="c2">让出 ${esc(v.gives)}</td>
+        <td class="c3">${SHOT_ZH[best]}<i>${v.mod[best]>0?'+':''}${v.mod[best]}</i></td></tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+// ───────── 右栏
+function renderInfo(opp) {
+  $('oppskills').innerHTML = ROSTERS[opp].players.map(p=>{
+    const st = ST(opp,p.id);
+    const kind = p.skill.kind==='once'?'全场一次':p.skill.kind==='cd'?`冷却${p.skill.cd}`
+      :p.skill.kind==='bench'?'场下可用':'常驻';
+    const spent = p.skill.kind==='once' && st.once ? ' 已用' : '';
+    return `<div class="oppsk"><b>${esc(p.short)}</b><em>${kind}${spent}</em><br>${esc(p.skill.zh)}：${esc(p.skill.text)}
+      <s>体能 ${st.cur}/${p.sta} · 已上 ${st.uses} 次</s></div>`;
+  }).join('');
+  const s = S.sides[MY];
+  $('piles').innerHTML = ['off','def','tac'].map(k=>
+    `<div class="pile"><div class="c num">${s.decks[k].length}</div>
+      <div class="l">${k==='off'?'进攻':k==='def'?'防守':'战术'}</div></div>`).join('');
+  const c = COACHES[s.coach], oc = COACHES[S.sides[opp].coach];
+  $('coachbox').innerHTML = `<b>${esc(c.zh)}</b>${esc(c.system)}
+    <div style="margin-top:4px;color:var(--faint);font-size:10.5px;line-height:1.45">${esc(c.note)}</div>
+    <div style="margin-top:5px;color:var(--hot);font-size:11px">${esc(c.unlockText)}</div>
+    <div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--line)">
+      对手 <b style="display:inline;font-size:12.5px">${esc(oc.zh)}</b> · ${esc(oc.system)}</div>`;
+}
+
+// ───────── 手牌（可直接点击出牌）
+function renderHand(off, def) {
+  const s = S.sides[MY];
+  const iAmOff = MY===off, iAmDef = MY===def;
+  const live = {
+    // 战术阶段进攻方就可以直接出进攻牌（= 不打战术，直接进攻）。
+    // Ethan：「我可以不用打战术 直接出进攻牌」—— 少一次点击，节奏快一倍。
+    off: iAmOff && (S.phase==='shot' || S.phase==='tactic'),
+    def: S.phase==='defcard' && iAmDef,
+    tac: (S.phase==='tactic' && iAmOff) || (S.phase==='respond' && iAmDef),
+  };
+  const label = c => c in OFF_TACTIC ? OFF_TACTIC[c].zh : c in DEF_RESPONSE ? DEF_RESPONSE[c].zh
+    : c in TAC_META ? TAC_META[c].zh : c in DEF_CARD_META ? DEF_CARD_META[c].zh : (SHOT_ZH[c]||c);
+  // 进攻牌的悬停提示要标明「怕哪种防守牌」。
+  // 三分怕干扰投篮、扣篮怕封盖 —— 不知道这个，中投/突破/扣篮/空接
+  // 在玩家眼里就只是「四个都要 2 分」，看不出区别（Ethan：进攻牌区分度不够）。
+  const shotTitle = (c, r) => {
+    const worst = Object.entries(DEF_CARD_META).filter(([,m]) => !m.canSteal)
+      .sort((a,b) => b[1].mod[c] - a[1].mod[c])[0];
+    const best  = Object.entries(DEF_CARD_META).filter(([,m]) => !m.canSteal)
+      .sort((a,b) => a[1].mod[c] - b[1].mod[c])[0];
+    let t = `${SHOT_ZH[c]}｜${SHOT_PTS[c]} 分｜难度 ${r.dc}｜命中率 ${Math.round(r.prob*100)}%`;
+    if (worst && worst[1].mod[c] > 0) t += `\n怕 ${worst[1].zh}（+${worst[1].mod[c]} 难度）`;
+    if (best  && best[1].mod[c] < (worst ? worst[1].mod[c] : 99))
+      t += `\n不怕 ${best[1].zh}（+${best[1].mod[c]}）`;
+    return t;
+  };
+
+  for (const k of ['off','def','tac']) {
+    const box = $('hand'+k[0].toUpperCase()+k.slice(1));
+    if (!s.hand[k].length) { box.innerHTML = `<span class="empty">无</span>`; continue; }
+    box.innerHTML = s.hand[k].map((c,i) => {
+      let sub = '', attr = '', on = false, title = label(c);
+      if (k==='off') {
+        sub = SHOT_PTS[c] + '分';
+        if (live.off) { const r = calcDC(c); sub = `需${r.dc} · ${Math.round(r.prob*100)}%`; on = true;
+          attr = `data-act="shot" data-card="${c}"`; title = shotTitle(c, r); }
+      } else if (k==='def') {
+        const meta = DEF_CARD_META[c];
+        // 常驻显示「定位」而不是「干扰」。原来一律写"干扰"，
+        // 四种防守牌看起来一模一样 —— 这正是 Ethan 说的「千篇一律」。
+        sub = meta.role || '干扰';
+        if (live.def) {
+          const m = meta.mod[S.cur.shot];
+          // 真实抬升要考虑 dcCeil 封顶 —— 显示 +4 但实际只抬了 +1 会让玩家觉得数字在骗人
+          const now = S.cur.dc, after = Math.min(TUNING.dcCeil, now + m);
+          const real = after - now;
+          // 抢断的价值不在"抬难度"，而在断球概率 —— 所以单列成功率
+          sub = meta.canSteal
+            ? `断球 ${Math.round((21-TUNING.stealDC)/20*100)}%`
+            : (real > 0 ? `+${real} · ${meta.role}` : `封顶 · ${meta.role}`);
+          on = true;
+          attr = `data-act="defcard" data-card="${c}"`;
+          title = meta.canSteal
+            ? `${meta.zh}｜${meta.text}（当前对手 ${Math.round((21-now)/20*100)}% 命中）`
+            : real > 0
+              ? `${meta.zh}｜${meta.text}｜难度 ${now} → ${after}（命中率 ${Math.round((21-now)/20*100)}% → ${Math.round((21-after)/20*100)}%）`
+              : `${meta.zh}｜${meta.text}｜但难度已到上限 ${TUNING.dcCeil}，打出无效`;
+        }
+      } else {
+        const isResp = c in DEF_RESPONSE, isOff = c in OFF_TACTIC;
+        sub = isResp ? '防守' : isOff ? '进攻' : '特殊';
+        if (live.tac) {
+          if (S.phase==='tactic' && (isOff || c==='hunt')) {
+            on = true;
+            if (c==='hunt') {
+              const t = ROSTERS[other(MY)].players.find(x=>ST(other(MY),x.id).cur>=1);
+              if (t) { attr = `data-act="tactic" data-card="hunt" data-target="${t.id}"`;
+                sub = '→'+t.short; title = `点哥战术：扣 ${t.short} 1 点体能`; }
+              else on = false;
+            } else { attr = `data-act="tactic" data-card="${c}"`;
+              const m = OFF_TACTIC[c].mod; const best = SHOTS.slice().sort((x,y)=>m[x]-m[y])[0];
+              sub = `${SHOT_ZH[best]}${m[best]}`; title = `${label(c)}｜主要利好 ${SHOT_ZH[best]} ${m[best]} 难度`; }
+          } else if (S.phase==='respond' && (isResp || c==='timeout')) {
+            on = true; attr = `data-act="respond" data-card="${c}"`;
+            title = isResp ? `${label(c)}｜让出 ${DEF_RESPONSE[c].gives}` : `教练暂停：取消对方战术`;
+            sub = isResp ? '应对' : '取消';
+          }
+        }
+      }
+      const glyph = k==='off' ? '◆' : k==='def' ? '▲' : '✦';
+      const rot = (i - (s.hand[k].length-1)/2) * 3;
+      return `<div class="card ${k} ${on?'on':(live[k]?'off2':'')}" ${attr}
+        ${on?'draggable="true"':''} data-kind="${k}" data-cardid="${c}"
+        style="transform:rotate(${rot.toFixed(1)}deg)" title="${esc(title)}">
+        <div class="cn ${label(c).length>=4?'long':''}">${esc(label(c))}</div>
+        <span class="glyph">${glyph}</span>
+        <div class="cv">${esc(sub)}</div></div>`;
+    }).join('');
+  }
+  for (const k of ['off','def','tac']) {
+    const el = $('cnt'+k[0].toUpperCase()+k.slice(1));
+    if (el) el.textContent = s.hand[k].length || '';
+  }
+  const total = handTotal(MY);
+  const cnt = $('handCnt');
+  cnt.textContent = `${total} / ${TUNING.handLimit}`;
+  cnt.classList.toggle('warn', total >= TUNING.handLimit);
+  const anyLive = live.off||live.def||live.tac;
+  $('handHint').textContent = anyLive
+    ? '拖到高亮区域出牌，或直接点牌'
+    : (S.phase==='select' ? '点下排的球员卡派他上场' : '现在不是你出牌的时机');
+}
+
+// ───────── 终局
+function renderOver() {
+  const v = $('veil');
+  v.classList.remove('hide');
+  const w = S.over;
+  const A = S.sides.CLE.score, B = S.sides.GSW.score;
+  const txt = w==='TIE' ? '平局' : `${ROSTERS[w].zh} 获胜`;
+  const col = w==='TIE' ? 'var(--muted)' : w==='CLE' ? 'var(--cle-lt)' : 'var(--gsw-lt)';
+  $('veilpane').innerHTML = `<div class="gameover">
+    <div class="kick">FINAL</div>
+    <div class="big num" style="color:${col}">${A} — ${B}</div>
+    <h1 style="font-size:30px;letter-spacing:2px;margin-top:10px">${esc(txt)}</h1>
+    <p>共 ${S.turn} 个回合</p>
+    <button class="btn" id="againbtn">再来一局</button></div>`;
+  $('againbtn').onclick = () => { localStorage.removeItem(LS); CH.postMessage({kind:'reset'}); location.reload(); };
+}
+// ════════════════════════════════════════════════════════════════════
+// 事件
+// ════════════════════════════════════════════════════════════════════
+document.addEventListener('click', e => {
+  // 视角切换按钮（自己一个人玩时来回切）
+  const sw = e.target.closest('[data-switch]');
+  if (sw) { setView(sw.dataset.switch); return; }
+
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const a = { type: el.dataset.act };
+  if (el.dataset.card) a.card = el.dataset.card;
+  if (el.dataset.pid) a.pid = el.dataset.pid;
+  if (el.dataset.target) a.target = el.dataset.target;
+  if (a.type==='pick') a.side = MY;
+  if (a.type==='bench') a.side = MY;
+  if (a.type==='giveup') { dispatch({ type:'giveup' }, true); return; }
+  if (a.type==='roll') { rollWithAnim(); return; }
+  dispatch(a, true);
+});
+
+// 掷骰动画 + 结算。抽成函数，因为「防守方决定完干扰 → 骰子自动开始判定」
+// 是 Ethan 明确要的节奏：所有修正已锁定，再点一下「掷 d20」是纯粹的多余操作。
+let rolling = false;
+// 动画时长。自动化测试里设 window.__fastDice = true 可以关掉，
+// 否则跑一局 20 回合要等 20 秒纯动画，playtest 会超时。
+function diceMs() { return window.__fastDice ? 30 : 940; }
+function rollWithAnim() {
+  if (rolling || !S || S.phase!=='roll') return;
+  rolling = true;
+  const die = $('die'), val = $('dieval');
+  die.className = 'die rolling';
+  let spin = setInterval(()=>{ val.textContent = 1 + Math.floor(Math.random()*20); }, 62);
+  setTimeout(()=>{
+    clearInterval(spin);
+    die.classList.remove('rolling'); die.classList.add('land');
+    rolling = false;
+    dispatch({ type:'roll' }, true);
+    setTimeout(()=>die.classList.remove('land'), 460);
+  }, diceMs());
+}
+// 进入 roll 阶段就自动掷（含从对手窗口同步过来的情况）
+function autoRoll() {
+  if (S && S.phase==='roll' && !rolling) rollWithAnim();
+}
+$('resetbtn').onclick = () => { localStorage.removeItem(LS); CH.postMessage({kind:'reset'}); location.reload(); };
+
+// ══════════════════════════════════════════════════════════════════
+// 拖放出牌
+// 设计要点：
+//  - 拖起来时把「合法落点」点亮，非法落点不响应 —— 玩家不用猜往哪拖
+//  - 落点语义按牌类分：进攻牌拖到进攻位、防守牌拖到防守位、战术牌拖到桌面
+//  - 点击出牌同时保留（拖放是加分项，不是唯一出路）
+// ══════════════════════════════════════════════════════════════════
+let DRAG = null;   // { kind, card, el }
+
+// 每类牌在当前阶段的合法落点与文案
+function dropTargetFor(kind) {
+  if (!S) return null;
+  const off = S.offSide, def = other(off);
+  // 进攻牌在 shot 阶段可出，也允许在 tactic 阶段直接出（= 不打战术，直接进攻）
+  if (kind==='off' && (S.phase==='shot' || S.phase==='tactic') && MY===off)
+    return { el:'duelOff', hint: S.phase==='tactic' ? '直接进攻（跳过战术）' : '出手', act:'shot' };
+  if (kind==='def' && S.phase==='defcard' && MY===def)
+    return { el:'duelDef', hint:'干扰这次出手', act:'defcard' };
+  if (kind==='tac' && S.phase==='tactic' && MY===off)
+    return { el:'played', hint:'打出战术', act:'tactic' };
+  if (kind==='tac' && S.phase==='respond' && MY===def)
+    return { el:'played', hint:'打出应对', act:'respond' };
+  return null;
+}
+
+function armDrop(kind) {
+  const t = dropTargetFor(kind);
+  document.querySelectorAll('.dropzone').forEach(z=>z.classList.remove('armed','over'));
+  if (!t) return null;
+  const zone = $(t.el);
+  zone.classList.add('armed');
+  const hintEl = zone.querySelector('.dzhint');
+  if (hintEl) hintEl.textContent = t.hint;
+  return t;
+}
+function disarmDrop() {
+  document.querySelectorAll('.dropzone').forEach(z=>z.classList.remove('armed','over'));
+}
+
+document.addEventListener('dragstart', e => {
+  const card = e.target.closest('.card[draggable="true"]');
+  if (!card) return;
+  DRAG = { kind: card.dataset.kind, card: card.dataset.cardid, el: card };
+  card.classList.add('dragging');
+  // Firefox 需要 setData 才会真正开始拖
+  try { e.dataTransfer.setData('text/plain', DRAG.card); } catch {}
+  e.dataTransfer.effectAllowed = 'move';
+  armDrop(DRAG.kind);
+});
+document.addEventListener('dragend', () => {
+  if (DRAG?.el) DRAG.el.classList.remove('dragging');
+  DRAG = null; disarmDrop();
+});
+document.addEventListener('dragover', e => {
+  if (!DRAG) return;
+  const t = dropTargetFor(DRAG.kind);
+  if (!t) return;
+  const zone = e.target.closest('#' + t.el);
+  if (!zone) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  zone.classList.add('over');
+});
+document.addEventListener('dragleave', e => {
+  const zone = e.target.closest('.dropzone');
+  if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('over');
+});
+document.addEventListener('drop', e => {
+  if (!DRAG) return;
+  const t = dropTargetFor(DRAG.kind);
+  if (!t) return;
+  const zone = e.target.closest('#' + t.el);
+  if (!zone) return;
+  e.preventDefault();
+  const a = { type: t.act, card: DRAG.card };
+  // 点哥战术需要目标
+  if (DRAG.card==='hunt') {
+    const tg = ROSTERS[other(MY)].players.find(x=>ST(other(MY),x.id).cur>=1);
+    if (!tg) { disarmDrop(); return; }
+    a.target = tg.id;
+  }
+  if (DRAG.el) DRAG.el.classList.remove('dragging');
+  DRAG = null; disarmDrop();
+  dispatch(a, true);
+});
+
+// ── 视角切换：单窗口自己打自己时用（不 reload，避免与另一窗口状态打架）
+function setView(side) {
+  MY = side;
+  const u = new URL(location.href); u.searchParams.set('side', side);
+  history.replaceState(null, '', u);
+  render();
+}
+$('vbCLE').onclick = () => setView('CLE');
+$('vbGSW').onclick = () => setView('GSW');
+$('openopp').onclick = () => {
+  const opp = other(MY);
+  const u = new URL(location.href); u.searchParams.set('side', opp);
+  window.open(u.href, 'qiyong-' + opp, 'width=1280,height=860');
+};
+// 当前该谁操作
+function whoActs() {
+  const off = S.offSide, def = other(off);
+  switch (S.phase) {
+    case 'select':  return S.picks.CLE ? (S.picks.GSW ? null : 'GSW') : 'CLE';
+    case 'tactic':  return off;
+    case 'respond': return def;
+    case 'shot':    return off;
+    case 'defcard': return def;
+    case 'roll':    return off;
+    case 'result':  return off;
+    default:        return null;
+  }
+}
+
+CH.onmessage = ev => {
+  const m = ev.data;
+  if (m.kind==='action') { S = JSON.parse(localStorage.getItem(LS)) || S; dispatch(m.action, false); }
+  else if (m.kind==='reset') location.reload();
+  else if (m.kind==='newmatch') { S = m.state; save(); render(); $('veil').classList.add('hide'); }
+  else if (m.kind==='whoami') CH.postMessage({ kind:'iam', side:MY });
+};
+
+// ─────────────────────────── 开局
+function showSetup() {
+  const v = $('veil'); v.classList.remove('hide');
+  const cs = Object.entries(COACHES);
+  $('veilpane').innerHTML = `
+    <div class="kick">2017 NBA FINALS · CARD BATTLE</div>
+    <h1>骑勇大战</h1>
+    <p>1v1 斗将 · d20 判定 · 先得 ${TUNING.targetScore} 分。
+      场上每方只有 1 人，需要第二个人的动作（空接、包夹）由卡牌临时翻出。
+      <br><b style="color:var(--hot)">分屏玩法</b>：两个窗口分别打开
+      <span class="num" style="font-size:12px">?side=CLE</span> 与
+      <span class="num" style="font-size:12px">?side=GSW</span>，选人阶段互相看不到。</p>
+    <div style="font-size:11px;letter-spacing:.18em;color:var(--faint);margin-bottom:8px">选择你的球队</div>
+    <div class="pick">
+      <button class="pk" data-side="CLE"><div class="t2">克利夫兰骑士</div>
+        <div class="d2">詹姆斯 / 欧文 / 勒夫 / JR / TT<br>2017 总决赛真实首发 · 主场 DC -2</div></button>
+      <button class="pk" data-side="GSW"><div class="t2">金州勇士</div>
+        <div class="d2">库里 / 克莱 / 杜兰特 / 格林 / 伊戈达拉<br>死亡五小 · 属性全面占优</div></button>
+    </div>
+    <div style="font-size:11px;letter-spacing:.18em;color:var(--faint);margin:16px 0 8px">骑士教练</div>
+    <div class="coachpick" id="cp1">${cs.map(([k,c])=>
+      `<button class="pk" data-coach1="${k}"><div class="t2" style="font-size:16px">${esc(c.zh)}</div>
+        <div class="d2">${esc(c.system)}</div></button>`).join('')}</div>
+    <div style="font-size:11px;letter-spacing:.18em;color:var(--faint);margin:16px 0 8px">勇士教练</div>
+    <div class="coachpick" id="cp2">${cs.map(([k,c])=>
+      `<button class="pk" data-coach2="${k}"><div class="t2" style="font-size:16px">${esc(c.zh)}</div>
+        <div class="d2">${esc(c.system)}</div></button>`).join('')}</div>
+    <button class="btn" id="startbtn" disabled style="opacity:.4">开始比赛</button>`;
+  let side = MY, c1 = 'lue', c2 = 'kerr';
+  const mark = (sel, val, attr) => {
+    document.querySelectorAll(`[${attr}]`).forEach(b=>{
+      b.style.borderColor = b.getAttribute(attr)===val ? 'var(--hot)' : '';
+    });
+  };
+  mark(null,c1,'data-coach1'); mark(null,c2,'data-coach2');
+  const sync = () => {
+    document.querySelectorAll('[data-side]').forEach(b=>{
+      b.style.borderColor = b.dataset.side===side ? 'var(--hot)' : '';
+    });
+    const btn = $('startbtn');
+    btn.disabled = !side; btn.style.opacity = side ? 1 : .4;
+  };
+  if (side) sync();
+  $('veilpane').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.side) { side = b.dataset.side; sync(); }
+    if (b.dataset.coach1) { c1 = b.dataset.coach1; mark(null,c1,'data-coach1'); }
+    if (b.dataset.coach2) { c2 = b.dataset.coach2; mark(null,c2,'data-coach2'); }
+    if (b.id==='startbtn' && side) {
+      MY = side;
+      const u = new URL(location.href); u.searchParams.set('side', side);
+      history.replaceState(null,'',u);
+      S = freshState(Date.now() % 2147483647, c1, c2);
+      save(); CH.postMessage({ kind:'newmatch', state:S });
+      render();
+      showOpenSecond(other(side));
+    }
+  };
+}
+
+// 开局后引导打开对手窗口。file:// 下 window.open 可能被拦，所以同时给可复制地址。
+function showOpenSecond(oppSide) {
+  const v = $('veil');
+  v.classList.remove('hide');
+  const url = new URL(location.href);
+  url.searchParams.set('side', oppSide);
+  const href = url.href;
+  $('veilpane').innerHTML = `
+    <div class="kick">SPLIT SCREEN</div>
+    <h1 style="font-size:38px;letter-spacing:2px">再开一个窗口</h1>
+    <p>这一局你执 <b style="color:var(--hot)">${ROSTERS[MY].zh}</b>。
+      对手（${ROSTERS[oppSide].zh}）需要一个<b style="color:var(--hot)">独立窗口</b> —— 选人阶段双方互相看不到，
+      所以不能在同一个窗口里进行。两个窗口共享同一场比赛，出牌实时同步。</p>
+    <div class="pick" style="grid-template-columns:1fr">
+      <button class="pk" id="openbtn" style="border-color:var(--hot)">
+        <div class="t2">打开 ${ROSTERS[oppSide].zh} 窗口</div>
+        <div class="d2">弹出一个新窗口。若被浏览器拦截，请复制下面的地址手动打开。</div></button>
+    </div>
+    <div style="font-size:11px;letter-spacing:.18em;color:var(--faint);margin:14px 0 6px">对手窗口地址（点击复制）</div>
+    <div class="num" id="urlbox" style="background:var(--ink2);border:1px solid var(--line2);
+      padding:11px 13px;font-size:11.5px;word-break:break-all;line-height:1.6;cursor:pointer">${esc(href)}</div>
+    <div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn" id="donebtn" style="margin-top:0">已打开对手窗口，开始</button>
+      <button class="btn gh" id="solobtn" style="margin-top:0">我一个人玩（用侧栏切视角）</button>
+    </div>`;
+  $('openbtn').onclick = () => {
+    const w = window.open(href, '_blank', 'width=1500,height=950');
+    if (!w) alert('浏览器拦截了弹窗。请点击下面的地址复制，然后在新窗口粘贴打开。');
+  };
+  $('urlbox').onclick = () => {
+    const box = $('urlbox');
+    navigator.clipboard?.writeText(href).then(
+      ()=>{ box.style.borderColor='var(--win)'; setTimeout(()=>box.style.borderColor='',900); },
+      ()=>{ const r=document.createRange(); r.selectNodeContents(box);
+            getSelection().removeAllRanges(); getSelection().addRange(r); });
+  };
+  $('donebtn').onclick = () => { v.classList.add('hide'); render(); };
+  $('solobtn').onclick = () => { v.classList.add('hide'); render(); };
+}
+
+// 第二个窗口：本机已有比赛在跑 → 这里是「加入」而不是「新建」。
+// 之前的 bug：不带 ?side= 打开会走 showSetup()，把第一个窗口的比赛冲掉。
+function showJoin(st) {
+  const v = $('veil'); v.classList.remove('hide');
+  const c1 = COACHES[st.sides.CLE.coach], c2 = COACHES[st.sides.GSW.coach];
+  $('veilpane').innerHTML = `
+    <div class="kick">JOIN MATCH</div>
+    <h1 style="font-size:38px;letter-spacing:2px">加入进行中的比赛</h1>
+    <p>本机已有一场比赛：<b style="color:var(--hot)">${st.sides.CLE.score} — ${st.sides.GSW.score}</b>，第 ${st.turn} 回合。
+      <br>骑士教练 ${esc(c1.zh)} · 勇士教练 ${esc(c2.zh)}。选择你要执哪一边。</p>
+    <div class="pick">
+      <button class="pk" data-join="CLE"><div class="t2">克利夫兰骑士</div>
+        <div class="d2">詹姆斯 / 欧文 / 勒夫 / JR / TT</div></button>
+      <button class="pk" data-join="GSW"><div class="t2">金州勇士</div>
+        <div class="d2">库里 / 克莱 / 杜兰特 / 格林 / 伊戈达拉</div></button>
+    </div>
+    <button class="btn gh" id="newbtn">放弃这场，重新开局</button>`;
+  $('veilpane').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.join) {
+      MY = b.dataset.join;
+      const u = new URL(location.href); u.searchParams.set('side', MY);
+      history.replaceState(null,'',u);
+      S = st; v.classList.add('hide'); render();
+    }
+    if (b.id==='newbtn') { localStorage.removeItem(LS); CH.postMessage({kind:'reset'}); location.reload(); }
+  };
+}
+
+// 调试桥：用于自动化测试与数值诊断（构造任意局面、逐项拆解 DC）。
+// 只读+dispatch，不改变任何游戏规则。
+window.__S = () => S;
+window.__MY = () => MY;     // playtest 用：SOLO 模式下 MY 不一定等于 URL ?side
+window.__dispatch = (a) => dispatch(a, true);
+window.__calcDC = (shot) => calcDC(shot);
+window.__setView = (side) => setView(side);
+
+// 启动
+const saved = localStorage.getItem(LS);
+if (saved) { try { S = JSON.parse(saved); } catch { S = null; } }
+if (S && S.over) { render(); }              // 终局：直接显示结果
+else if (S && MY) { render(); }             // 已知身份 + 有比赛 → 直接玩
+else if (S) { showJoin(S); }                // 有比赛但不知身份 → 加入，不要新建
+else { showSetup(); }                        // 全新 → 开局设置
+</script>
+</body>
+</html>
