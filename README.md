@@ -66,6 +66,14 @@ d20 判定（自动掷）→ 结果 → 交换球权
 
 ---
 
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| **[GAME_DESIGN.md](GAME_DESIGN.md)** | **游戏设计说明书**：设计思路、完整玩法、技能表、相克矩阵、数值标定、架构 |
+| [DESIGN.md](DESIGN.md) | 开发决策记录：每次调参的实测依据、踩过的坑、被推翻的设计 |
+| README.md | 本文件，快速上手 |
+
 ## 项目结构
 
 | 文件 | 作用 |
@@ -133,4 +141,4 @@ node run.mjs play      # 只跑自动对局机器人
 - **规则注入**：`build.mjs` 把 `rules.mjs` 内联进 HTML，产物自包含
 - **调试桥**：页面暴露 `window.__S / __MY / __dispatch / __calcDC / __setView`，用于构造任意局面与逐项拆解数值
 
-详细的调参依据与踩坑记录见 `DESIGN.md`。
+完整的设计说明见 **[GAME_DESIGN.md](GAME_DESIGN.md)**，调参依据与踩坑记录见 `DESIGN.md`。
